@@ -6,7 +6,7 @@
 Getting Started
 ===============
 
-To get things started we will try to run a very simple `GTK+
+To get things started we will try to run a very simple `GTK
 <https://www.gtk.org/>`_ based GUI application using the :doc:`PyGObject <index>` provided
 Python bindings. First create a small Python script called ``hello.py`` with
 the following content and save it somewhere:
@@ -22,14 +22,19 @@ the following content and save it somewhere:
     window.connect("destroy", Gtk.main_quit)
     Gtk.main()
 
-Before we can run the example application we need to install PyGObject, GTK+
+Before we can run the example application we need to install PyGObject, GTK
 and their dependencies. Follow the instructions for your platform below.
 
-======================================================= ==================================================== ==================================================== ==========================================================
-|ubuntu-logo| :ref:`Ubuntu <ubuntu-getting-started>`    |fedora-logo| :ref:`Fedora <fedora-getting-started>` |arch-logo| :ref:`Arch Linux <arch-getting-started>` |opensuse-logo| :ref:`openSUSE <opensuse-getting-started>`
-|windows-logo| :ref:`Windows <windows-getting-started>` |macosx-logo| :ref:`macOS <macosx-getting-started>`  |python-logo| :ref:`PyPI <pypi-getting-started>`
-======================================================= ==================================================== ==================================================== ==========================================================
+======================================================= ==================================================== ==========================================================
+|ubuntu-logo| :ref:`Ubuntu <ubuntu-getting-started>`    |fedora-logo| :ref:`Fedora <fedora-getting-started>` |arch-logo| :ref:`Arch Linux <arch-getting-started>`
+|windows-logo| :ref:`Windows <windows-getting-started>` |macosx-logo| :ref:`macOS <macosx-getting-started>`  |opensuse-logo| :ref:`openSUSE <opensuse-getting-started>`
+======================================================= ==================================================== ==========================================================
 
+After running the example application have a look at the "`Python GTK 3
+Tutorial <https://python-gtk-3-tutorial.readthedocs.io>`__" for more examples
+on how to create GTK apps and the "`PyGObject API Reference
+<https://lazka.github.io/pgi-docs>`__" for API documentation for all supported
+libraries.
 
 .. _windows-getting-started:
 
@@ -38,10 +43,10 @@ and their dependencies. Follow the instructions for your platform below.
 
 #) Go to http://www.msys2.org/ and download the x86_64 installer
 #) Follow the instructions on the page for setting up the basic environment
-#) Run ``C:\msys64\mingw32.exe`` - a terminal window should pop up
+#) Run ``C:\msys64\mingw64.exe`` - a terminal window should pop up
 #) Execute ``pacman -Suy``
-#) Execute ``pacman -S mingw-w64-i686-gtk3 mingw-w64-i686-python2-gobject mingw-w64-i686-python3-gobject``
-#) To test that GTK+3 is working you can run ``gtk3-demo``
+#) Execute ``pacman -S mingw-w64-x86_64-gtk3 mingw-w64-x86_64-python3 mingw-w64-x86_64-python3-gobject``
+#) To test that GTK 3 is working you can run ``gtk3-demo``
 #) Copy the ``hello.py`` script you created to ``C:\msys64\home\<username>``
 #) In the mingw32 terminal execute ``python3 hello.py`` - a window should appear.
 
@@ -54,10 +59,20 @@ and their dependencies. Follow the instructions for your platform below.
 |ubuntu-logo| Ubuntu / |debian-logo| Debian
 -------------------------------------------
 
-1) Open a terminal
-2) Execute ``sudo apt install python-gi python-gi-cairo python3-gi python3-gi-cairo gir1.2-gtk-3.0``
-3) Change the directory to where your ``hello.py`` script can be found (e.g. ``cd Desktop``)
-4) Run ``python3 hello.py``
+Installing the system provided PyGObject:
+  #) Open a terminal
+  #) Execute ``sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0``
+  #) Change the directory to where your ``hello.py`` script can be found (e.g. ``cd Desktop``)
+  #) Run ``python3 hello.py``
+
+Installing from PyPI with pip:
+  #) Open a terminal and enter your virtual environment
+  #) Execute ``sudo apt install libgirepository1.0-dev gcc libcairo2-dev pkg-config python3-dev gir1.2-gtk-3.0``
+     to install the build dependencies and GTK
+  #) Execute ``pip3 install pycairo`` to build and install Pycairo
+  #) Execute ``pip3 install PyGObject`` to build and install PyGObject
+  #) Change the working directory to where your ``hello.py`` script can be found
+  #) Run ``python3 hello.py``
 
 .. figure:: images/start_linux.png
     :scale: 60%
@@ -68,10 +83,20 @@ and their dependencies. Follow the instructions for your platform below.
 |fedora-logo| Fedora
 --------------------
 
-1) Open a terminal
-2) Execute ``sudo dnf install pygobject3 python3-gobject gtk3``
-3) Change the directory to where your ``hello.py`` script can be found (e.g. ``cd Desktop``)
-4) Run ``python3 hello.py``
+Installing the system provided PyGObject:
+  #) Open a terminal
+  #) Execute ``sudo dnf install python3-gobject gtk3``
+  #) Change the working directory to where your ``hello.py`` script can be found
+  #) Run ``python3 hello.py``
+
+Installing from PyPI with pip:
+  #) Open a terminal and enter your virtual environment
+  #) Execute ``sudo dnf install gcc gobject-introspection-devel cairo-devel pkg-config python3-devel gtk3``
+     to install the build dependencies and GTK
+  #) Execute ``pip3 install pycairo`` to build and install Pycairo
+  #) Execute ``pip3 install PyGObject`` to build and install PyGObject
+  #) Change the working directory to where your ``hello.py`` script can be found
+  #) Run ``python3 hello.py``
 
 
 .. _arch-getting-started:
@@ -79,10 +104,20 @@ and their dependencies. Follow the instructions for your platform below.
 |arch-logo| Arch Linux
 ----------------------
 
-1) Open a terminal
-2) Execute ``sudo pacman -S python-gobject python2-gobject gtk3``
-3) Change the directory to where your ``hello.py`` script can be found (e.g. ``cd Desktop``)
-4) Run ``python3 hello.py``
+Installing the system provided PyGObject:
+  #) Open a terminal
+  #) Execute ``sudo pacman -S python-gobject gtk3``
+  #) Change the working directory to where your ``hello.py`` script can be found
+  #) Run ``python3 hello.py``
+
+Installing from PyPI with pip:
+  #) Open a terminal and enter your virtual environment
+  #) Execute ``sudo pacman -S python cairo pkgconf gobject-introspection gtk3``
+     to install the build dependencies and GTK
+  #) Execute ``pip3 install pycairo`` to build and install Pycairo
+  #) Execute ``pip3 install PyGObject`` to build and install PyGObject
+  #) Change the working directory to where your ``hello.py`` script can be found
+  #) Run ``python3 hello.py``
 
 
 .. _opensuse-getting-started:
@@ -90,10 +125,20 @@ and their dependencies. Follow the instructions for your platform below.
 |opensuse-logo| openSUSE
 ------------------------
 
-1) Open a terminal
-2) Execute ``sudo zypper install python-gobject python3-gobject gtk3``
-3) Change the directory to where your ``hello.py`` script can be found (e.g. ``cd Desktop``)
-4) Run ``python3 hello.py``
+Installing the system provided PyGObject:
+  #) Open a terminal
+  #) Execute ``sudo zypper install python3-gobject python3-gobject-Gdk typelib-1_0-Gtk-3_0 libgtk-3-0``
+  #) Change the directory to where your ``hello.py`` script can be found
+  #) Run ``python3 hello.py``
+
+Installing from PyPI with pip:
+  #) Open a terminal and enter your virtual environment
+  #) Execute ``sudo zypper install cairo-devel pkg-config python3-devel gcc gobject-introspection-devel``
+     to install the build dependencies and GTK
+  #) Execute ``pip3 install pycairo`` to build and install Pycairo
+  #) Execute ``pip3 install PyGObject`` to build and install PyGObject
+  #) Change the working directory to where your ``hello.py`` script can be found
+  #) Run ``python3 hello.py``
 
 
 .. _macosx-getting-started:
@@ -101,33 +146,17 @@ and their dependencies. Follow the instructions for your platform below.
 |macosx-logo| macOS
 -------------------
 
-1) Go to https://brew.sh/ and install homebrew
-2) Open a terminal
-3) Execute ``brew install pygobject3 --with-python@2 gtk+3`` to install for both python2 and python3
-4) Change the directory to where your ``hello.py`` script can be found (e.g. ``cd Desktop``)
-5) Run ``python3 hello.py``
+#) Go to https://brew.sh/ and install homebrew
+#) Open a terminal
+#) Execute ``brew install pygobject3 gtk+3``
+#) Change the working directory to where your ``hello.py`` script can be found
+#) Run ``python3 hello.py``
 
 .. figure:: images/start_macos.png
     :scale: 70%
 
 
-.. _pypi-getting-started:
-
-|python-logo| From PyPI
------------------------
-
-PyGObject is also available on PyPI: https://pypi.org/project/PyGObject
-
-For this approach you have to make sure that all runtime and build
-dependencies are present yourself as pip will only take care of pycairo.
-
-.. code::
-
-    virtualenv --python=python3 myvenv
-    source myvenv/bin/activate
-    pip install pygobject
-    python hello.py
-
+----
 
 For more details on how to use a virtualenv with PyGObject, see the
 ":ref:`devenv`" page.

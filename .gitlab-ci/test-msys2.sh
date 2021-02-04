@@ -49,12 +49,13 @@ export COVERAGE_FILE="${COV_DIR}/.coverage.${COV_KEY}"
 export PYTHONDEVMODE=1
 
 $PYTHON setup.py build_tests
-MSYSTEM= $PYTHON -m coverage run tests/runtests.py
+MSYSTEM= $PYTHON -m coverage run --context "${COV_KEY}" tests/runtests.py
 
-curl -O -J -L "https://github.com/linux-test-project/lcov/archive/master.tar.gz"
-tar -xvzf lcov-master.tar.gz
+# FIXME: lcov doesn't support gcc9
+#~ curl -O -J -L "https://github.com/linux-test-project/lcov/archive/master.tar.gz"
+#~ tar -xvzf lcov-master.tar.gz
 
-./lcov-master/bin/lcov \
-    --rc lcov_branch_coverage=1 --no-external \
-    --directory . --capture --output-file \
-    "${COV_DIR}/${COV_KEY}.lcov"
+#~ ./lcov-master/bin/lcov \
+    #~ --rc lcov_branch_coverage=1 --no-external \
+    #~ --directory . --capture --output-file \
+    #~ "${COV_DIR}/${COV_KEY}.lcov"

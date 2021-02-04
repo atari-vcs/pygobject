@@ -1,3 +1,187 @@
+pygobject (3.38.0-2) unstable; urgency=medium
+
+  * Team upload
+
+  [ Helmut Grohne ]
+  * Reduce Build-Depends
+    - at-spi2-core was added to fix failing tests. Annotate <!nocheck>.
+    - dbus is also used for running tests. Annotate <!nocheck>.
+    - Drop docbook-xsl and xsltproc. Documentation is now restructured text.
+    - Drop python3-cairo-dbg as Python no longer varies the path for debugged
+      extensions.
+    - python3-flake8 is used for setup.py quality. Annotate <!nocheck>.
+    - locales is evidently used in tests. Annotate <!nocheck>.
+    (Closes: #980769)
+
+  [ Simon McVittie ]
+  * Standards-Version: 4.5.1 (no changes required)
+  * Make python3-gi Multi-Arch: allowed.
+    This allows it to be depended on as "python3-gi:any", in conjunction
+    with "python3:any", if an architecture-specific package contains a
+    Python script that will "import gi", but does not rely on the Python
+    interpreter that runs that script having an architecture that matches
+    the architecture of the depending package itself. (Closes: #971745)
+
+ -- Simon McVittie <smcv@debian.org>  Thu, 04 Feb 2021 13:53:44 +0000
+
+pygobject (3.38.0-1) unstable; urgency=medium
+
+  * Team upload
+  * New upstream release
+    - gdk overrides: Fix wrapping of scroll events
+    - Add overrides for Gtk.Button set/get_focus_on_click
+
+ -- Simon McVittie <smcv@debian.org>  Fri, 18 Sep 2020 09:30:51 +0100
+
+pygobject (3.36.1-1) unstable; urgency=medium
+
+  * Team upload
+  * New upstream release
+    - Fix failing tests with pytest 5.4.0+
+    - Add override to make sure both TreeModelSort.new_with_model and
+      TreeModel.sort_new_with_model exist, independent of the GTK version
+    - Fix initialisation order errors with Widgets getting created from C
+    - Fix errors when calling init_template() multiple times
+
+ -- Simon McVittie <smcv@debian.org>  Fri, 28 Aug 2020 23:29:30 +0100
+
+pygobject (3.36.0-4) unstable; urgency=medium
+
+  * Team upload
+  * Build without Python 2 support (Closes: #937448, #943104)
+
+ -- Simon McVittie <smcv@debian.org>  Thu, 16 Jul 2020 17:40:41 +0100
+
+pygobject (3.36.0-3) unstable; urgency=medium
+
+  * Remove pytest from debian/control.in too; thanks to Scott Kitterman for
+    spotting this
+  * Disable tests for python2-dbg too
+
+ -- Sandro Tosi <morph@debian.org>  Sat, 18 Apr 2020 22:44:55 -0400
+
+pygobject (3.36.0-2) unstable; urgency=medium
+
+  * Dont run unittests for python2 binary, to reduce pytest rdeps
+
+ -- Sandro Tosi <morph@debian.org>  Tue, 14 Apr 2020 00:16:21 -0400
+
+pygobject (3.36.0-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Laurent Bigonville <bigon@debian.org>  Sun, 15 Mar 2020 12:35:24 +0100
+
+pygobject (3.34.0-6) unstable; urgency=medium
+
+  * Team upload
+  * d/tests/build3: Link with python3-embed.pc instead of python3.pc
+    when the default python3 becomes 3.8.
+    Python changed its behaviour in 3.8 so that python3.pc is only
+    correct for extensions like pygobject, not for embedders like vim, and
+    the program in this test is an embedder.
+    Based on a patch from Steve Langasek. (Closes: #950464)
+
+ -- Simon McVittie <smcv@debian.org>  Mon, 03 Feb 2020 20:06:42 +0000
+
+pygobject (3.34.0-5) unstable; urgency=medium
+
+  * Team upload
+
+  [ Simon McVittie ]
+  * Adjust build-dependencies for libffi7 transition:
+    - Bump libffi-dev dependency to 3.3 to make sure we build with libffi7
+    - Bump gobject-introspection dependency to a version that guarantees
+      it was built with libffi7
+  * Standards-Version: 4.5.0 (no changes required)
+
+  [ lintian-brush ]
+  * Set upstream metadata fields: Bug-Database, Bug-Submit, Repository,
+    Repository-Browse.
+
+ -- Simon McVittie <smcv@debian.org>  Thu, 30 Jan 2020 00:20:26 +0000
+
+pygobject (3.34.0-4) unstable; urgency=medium
+
+  * Team upload
+
+  [ Simon McVittie ]
+  * d/tests: Fix some shellcheck warnings
+  * d/tests/build*: Use correct compiler for proposed autopkgtest
+    cross-architecture testing support
+  * d/tests: Mark all tests as superficial
+  * Drop dependency on removed transitional package pep8
+  * Drop dependency on pyflakes, no longer used directly
+    (python${version} -m flake8 is used instead)
+
+  [ Dimitri John Ledkov ]
+  * Drop python-gi dependency from python-gi-dev. python2 is getting
+    actively removed, and python-gi-dev which is used for python3 bindings
+    shouldn't pull in python2 bindings. (Closes: #945022)
+
+ -- Simon McVittie <smcv@debian.org>  Mon, 27 Jan 2020 23:24:18 +0000
+
+pygobject (3.34.0-3) unstable; urgency=medium
+
+  * Team upload
+  * d/copyright: Add copyright holder for autopkgtest
+  * d/control.in: Remove python-gobject transitional package.
+    It has been moved to src:pygobject-2 so that it naturally goes away
+    when python-gobject-2 does.
+  * d/tests/build: Improve diagnostics on failure
+  * d/tests/control: Fix dependencies for python3.x-dbg
+
+ -- Simon McVittie <smcv@debian.org>  Sat, 16 Nov 2019 20:55:14 +0000
+
+pygobject (3.34.0-2) unstable; urgency=medium
+
+  * Team upload
+  * Remove unused build-dependency on python-apt-dbg.
+    It doesn't seem to be used anywhere, and removing it has no effect
+    on the built binary packages (verified with diffoscope).
+  * d/tests/python2*: Use python2, not python.
+    Thanks to Matthias Klose. (Closes: #943428)
+  * d/rules: Fail the build if any files are built but not installed
+  * d/rules: Delete *.pyc files before running dh_missing
+  * Fix installation of extensions for Python 3.8.
+    Thanks to Matthias Klose. (Closes: #943430)
+  * d/tests/build2: Test embedding with Python 2
+  * d/tests/build, d/tests/python3-all: Test all supported Python versions
+
+ -- Simon McVittie <smcv@debian.org>  Sat, 16 Nov 2019 10:49:25 +0000
+
+pygobject (3.34.0-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Sebastien Bacher <seb128@ubuntu.com>  Fri, 13 Sep 2019 16:30:01 +0200
+
+pygobject (3.33.1-1) experimental; urgency=medium
+
+  * New upstream release
+
+ -- Sebastien Bacher <seb128@ubuntu.com>  Tue, 20 Aug 2019 16:32:37 +0200
+
+pygobject (3.32.2-1) unstable; urgency=medium
+
+  * New upstream release:
+    - Python 3.8b1 compatibility fixes
+
+ -- Sebastien Bacher <seb128@ubuntu.com>  Fri, 09 Aug 2019 18:03:16 +0200
+
+pygobject (3.32.0-1) experimental; urgency=medium
+
+  * New upstream release
+
+ -- Jeremy Bicha <jbicha@debian.org>  Sun, 10 Mar 2019 12:59:34 -0400
+
+pygobject (3.31.4-1) experimental; urgency=medium
+
+  * New upstream release
+  * Bump minimum glib to 2.48.0
+
+ -- Jeremy Bicha <jbicha@debian.org>  Fri, 08 Mar 2019 09:45:40 -0500
+
 pygobject (3.30.4-1) unstable; urgency=medium
 
   * New upstream release

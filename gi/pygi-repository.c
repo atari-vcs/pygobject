@@ -22,11 +22,11 @@
 #include "pygi-repository.h"
 #include "pygi-info.h"
 #include "pygi-basictype.h"
-#include "pygi-python-compat.h"
+#include "pygi-util.h"
 
 PyObject *PyGIRepositoryError;
 
-PYGLIB_DEFINE_TYPE("gi.Repository", PyGIRepository_Type, PyGIRepository);
+PYGI_DEFINE_TYPE("gi.Repository", PyGIRepository_Type, PyGIRepository);
 
 static PyObject *
 _wrap_g_irepository_enumerate_versions (PyGIRepository *self,

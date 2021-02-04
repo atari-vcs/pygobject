@@ -207,7 +207,7 @@ typedef struct {
     guint index;
 } PyGPropsIter;
 
-PYGLIB_DEFINE_TYPE("gi._gi.GPropsIter", PyGPropsIter_Type, PyGPropsIter);
+PYGI_DEFINE_TYPE("gi._gi.GPropsIter", PyGPropsIter_Type, PyGPropsIter);
 
 static void
 pyg_props_iter_dealloc(PyGPropsIter *self)
@@ -263,7 +263,7 @@ build_parameter_list(GObjectClass *class)
 	name = g_strdup(g_param_spec_get_name(props[i]));
 	/* hyphens cannot belong in identifiers */
 	g_strdelimit(name, "-", '_');
-	prop_str = PYGLIB_PyUnicode_FromString(name);
+	prop_str = PyUnicode_FromString (name);
 	
 	PyList_SetItem(props_list, i, prop_str);
 	g_free(name);
@@ -282,7 +282,7 @@ PyGProps_getattro(PyGProps *self, PyObject *attr)
     GObjectClass *class;
     GParamSpec *pspec;
 
-    attr_name = PYGLIB_PyUnicode_AsString(attr);
+    attr_name = PyUnicode_AsUTF8 (attr);
     if (!attr_name) {
         PyErr_Clear();
         return PyObject_GenericGetAttr((PyObject *)self, attr);
@@ -336,7 +336,7 @@ set_property_from_pspec(GObject *obj,
         PyObject *pvalue_str = PyObject_Repr(pvalue);
 	PyErr_Format(PyExc_TypeError,
 	             "could not convert %s to type '%s' when setting property '%s.%s'",
-	             PYGLIB_PyUnicode_AsString(pvalue_str),
+	             PyUnicode_AsUTF8 (pvalue_str),
 	             g_type_name(G_PARAM_SPEC_VALUE_TYPE(pspec)),
 	             G_OBJECT_TYPE_NAME(obj),
 	             pspec->name);
@@ -352,7 +352,7 @@ set_property_from_pspec(GObject *obj,
     return TRUE;
 }
 
-PYGLIB_DEFINE_TYPE("gi._gi.GProps", PyGProps_Type, PyGProps);
+PYGI_DEFINE_TYPE("gi._gi.GProps", PyGProps_Type, PyGProps);
 
 static int
 PyGProps_setattro(PyGProps *self, PyObject *attr, PyObject *pvalue)
@@ -368,7 +368,7 @@ PyGProps_setattro(PyGProps *self, PyObject *attr, PyObject *pvalue)
 	return -1;
     }
 
-    attr_name = PYGLIB_PyUnicode_AsString(attr);
+    attr_name = PyUnicode_AsUTF8 (attr);
     if (!attr_name) {
         PyErr_Clear();
         return PyObject_GenericSetAttr((PyObject *)self, attr, pvalue);
@@ -478,7 +478,7 @@ static PySequenceMethods _PyGProps_as_sequence = {
     0
 };
 
-PYGLIB_DEFINE_TYPE("gi._gi.GPropsDescr", PyGPropsDescr_Type, PyObject);
+PYGI_DEFINE_TYPE("gi._gi.GPropsDescr", PyGPropsDescr_Type, PyObject);
 
 static PyObject *
 pyg_props_descr_descr_get(PyObject *self, PyObject *obj, PyObject *type)
@@ -579,7 +579,7 @@ pygobject_register_class(PyObject *dict, const gchar *type_name,
      */
     s = strrchr(type->tp_name, '.');
     if (s != NULL) {
-	mod_name = PYGLIB_PyUnicode_FromStringAndSize(type->tp_name, (int)(s - type->tp_name));
+	mod_name = PyUnicode_FromStringAndSize (type->tp_name, (int)(s - type->tp_name));
 	PyDict_SetItemString(type->tp_dict, "__module__", mod_name);
 	Py_DECREF(mod_name);
     }
@@ -795,7 +795,7 @@ pygobject_new_with_interfaces(GType gtype)
 
     /* Something special to point out that it's not accessible through
      * gi.repository */
-    o = PYGLIB_PyUnicode_FromString ("__gi__");
+    o = PyUnicode_FromString ("__gi__");
     PyDict_SetItemString (dict, "__module__", o);
     Py_DECREF (o);
 
@@ -870,15 +870,12 @@ static void
 pygobject_inherit_slots(PyTypeObject *type, PyObject *bases, gboolean check_for_present)
 {
     static int slot_offsets[] = { offsetof(PyTypeObject, tp_richcompare),
-#if PY_VERSION_HEX < 0x03000000
-                                  offsetof(PyTypeObject, tp_compare),
-#endif
                                   offsetof(PyTypeObject, tp_richcompare),
                                   offsetof(PyTypeObject, tp_hash),
                                   offsetof(PyTypeObject, tp_iter),
                                   offsetof(PyTypeObject, tp_repr),
                                   offsetof(PyTypeObject, tp_str),
-                                  offsetof(PyTypeObject, tp_print) };
+    };
     gsize i;
 
     /* Happens when registering gobject.GObject itself, at least. */
@@ -1110,7 +1107,7 @@ pygobject_watch_closure(PyObject *self, GClosure *closure)
 
 /* -------------- PyGObject behaviour ----------------- */
 
-PYGLIB_DEFINE_TYPE("gi._gi.GObject", PyGObject_Type, PyGObject);
+PYGI_DEFINE_TYPE("gi._gi.GObject", PyGObject_Type, PyGObject);
 
 static void
 pygobject_dealloc(PyGObject *self)
@@ -1160,10 +1157,10 @@ pygobject_richcompare(PyObject *self, PyObject *other, int op)
                                op);
 }
 
-static PYGLIB_Py_hash_t
+static Py_hash_t
 pygobject_hash(PyGObject *self)
 {
-    return PYGLIB_Py_hash_t_FromVoidPtr (self->obj);
+    return (Py_hash_t)(gintptr)(self->obj);
 }
 
 static PyObject *
@@ -1176,12 +1173,12 @@ pygobject_repr(PyGObject *self)
     if (module == NULL)
         return NULL;
 
-    if (!PYGLIB_PyUnicode_Check (module)) {
+    if (!PyUnicode_Check (module)) {
         Py_DECREF (module);
         return NULL;
     }
 
-    module_str = PYGLIB_PyUnicode_AsString (module);
+    module_str = PyUnicode_AsUTF8 (module);
     namespace = g_strrstr (module_str, ".");
     if (namespace == NULL) {
         namespace = module_str;
@@ -1189,10 +1186,10 @@ pygobject_repr(PyGObject *self)
         namespace += 1;
     }
 
-    repr = PYGLIB_PyUnicode_FromFormat ("<%s.%s object at %p (%s at %p)>",
-                                        namespace, Py_TYPE (self)->tp_name, self,
-                                        self->obj ? G_OBJECT_TYPE_NAME (self->obj) : "uninitialized",
-                                        self->obj);
+    repr = PyUnicode_FromFormat ("<%s.%s object at %p (%s at %p)>",
+                                 namespace, Py_TYPE (self)->tp_name, self,
+                                 self->obj ? G_OBJECT_TYPE_NAME (self->obj) : "uninitialized",
+                                 self->obj);
     Py_DECREF (module);
     return repr;
 }
@@ -1253,23 +1250,28 @@ pygobject_free(PyObject *op)
     PyObject_GC_Del(op);
 }
 
-gboolean
+static gboolean
 pygobject_prepare_construct_properties(GObjectClass *class, PyObject *kwargs,
-                                       guint *n_params, GParameter **params)
+                                       guint *n_properties, const char **names[], const GValue **values)
 {
-    *n_params = 0;
-    *params = NULL;
+    *n_properties = 0;
+    *names = NULL;
+    *values = NULL;
 
     if (kwargs) {
         Py_ssize_t pos = 0;
         PyObject *key;
         PyObject *value;
+        Py_ssize_t len;
 
-        *params = g_new0(GParameter, PyDict_Size(kwargs));
+        len = PyDict_Size(kwargs);
+        *names = g_new(const char*, len);
+        *values = g_new0(GValue, len);
         while (PyDict_Next(kwargs, &pos, &key, &value)) {
             GParamSpec *pspec;
-            GParameter *param = &(*params)[*n_params];
-            const gchar *key_str = PYGLIB_PyUnicode_AsString(key);
+            GValue *gvalue = &(*values)[*n_properties];
+
+            const gchar *key_str = PyUnicode_AsUTF8 (key);
 
             pspec = g_object_class_find_property(class, key_str);
             if (!pspec) {
@@ -1278,16 +1280,16 @@ pygobject_prepare_construct_properties(GObjectClass *class, PyObject *kwargs,
                              G_OBJECT_CLASS_NAME(class), key_str);
                 return FALSE;
             }
-            g_value_init(&param->value, G_PARAM_SPEC_VALUE_TYPE(pspec));
-            if (pyg_param_gvalue_from_pyobject(&param->value, value, pspec) < 0) {
+            g_value_init(gvalue, G_PARAM_SPEC_VALUE_TYPE(pspec));
+            if (pyg_param_gvalue_from_pyobject(gvalue, value, pspec) < 0) {
                 PyErr_Format(PyExc_TypeError,
                              "could not convert value for property `%s' from %s to %s",
                              key_str, Py_TYPE(value)->tp_name,
                              g_type_name(G_PARAM_SPEC_VALUE_TYPE(pspec)));
                 return FALSE;
             }
-            param->name = g_strdup(key_str);
-            ++(*n_params);
+            (*names)[*n_properties] = g_strdup(key_str);
+            ++(*n_properties);
         }
     }
     return TRUE;
@@ -1299,8 +1301,9 @@ static int
 pygobject_init(PyGObject *self, PyObject *args, PyObject *kwargs)
 {
     GType object_type;
-    guint n_params = 0, i;
-    GParameter *params = NULL;
+    guint n_properties = 0, i;
+    const GValue *values = NULL;
+    const char **names = NULL;
     GObjectClass *class;
 
     /* Only do GObject creation and property setting if the GObject hasn't
@@ -1334,18 +1337,20 @@ pygobject_init(PyGObject *self, PyObject *args, PyObject *kwargs)
 	return -1;
     }
 
-    if (!pygobject_prepare_construct_properties (class, kwargs, &n_params, &params))
+    if (!pygobject_prepare_construct_properties (class, kwargs, &n_properties, &names, &values))
         goto cleanup;
 
-    if (pygobject_constructv(self, n_params, params))
-	PyErr_SetString(PyExc_RuntimeError, "could not create object");
+    if (pygobject_constructv(self, n_properties, names, values))
+        PyErr_SetString(PyExc_RuntimeError, "could not create object");
 
  cleanup:
-    for (i = 0; i < n_params; i++) {
-	g_free((gchar *) params[i].name);
-	g_value_unset(&params[i].value);
+    for (i = 0; i < n_properties; i++) {
+        g_free(names[i]);
+        g_value_unset(&values[i]);
     }
-    g_free(params);
+    g_free(names);
+    g_free(values);
+
     g_type_class_unref(class);
     
     return (self->obj) ? 0 : -1;
@@ -1390,13 +1395,13 @@ pygobject_get_properties(PyGObject *self, PyObject *args)
         gchar *property_name;
         PyObject *item;
 
-        if (!PYGLIB_PyUnicode_Check(py_property)) {
+        if (!PyUnicode_Check (py_property)) {
             PyErr_SetString(PyExc_TypeError,
                             "Expected string argument for property.");
             goto fail;
         }
 
-        property_name = PYGLIB_PyUnicode_AsString(py_property);
+        property_name = PyUnicode_AsUTF8 (py_property);
         item = pygi_get_property_value_by_name (self, property_name);
         PyTuple_SetItem (tuple, i, item);
     }
@@ -1463,7 +1468,7 @@ pygobject_set_properties(PyGObject *self, PyObject *args, PyObject *kwargs)
     pos = 0;
 
     while (kwargs && PyDict_Next (kwargs, &pos, &key, &value)) {
-	gchar *key_str = PYGLIB_PyUnicode_AsString(key);
+	gchar *key_str = PyUnicode_AsUTF8 (key);
 	GParamSpec *pspec;
 	int ret = -1;
 
@@ -1647,8 +1652,8 @@ pygobject_bind_property(PyGObject *self, PyObject *args)
 		source_repr = PyObject_Repr((PyObject*)self);
 		target_repr = PyObject_Repr(target);
 		PyErr_Format(PyExc_TypeError, "Cannot create binding from %s.%s to %s.%s",
-			     PYGLIB_PyUnicode_AsString(source_repr), source_name,
-			     PYGLIB_PyUnicode_AsString(target_repr), target_name);
+			     PyUnicode_AsUTF8 (source_repr), source_name,
+			     PyUnicode_AsUTF8 (target_repr), target_name);
 		Py_DECREF(source_repr);
 		Py_DECREF(target_repr);
 		return NULL;
@@ -1670,7 +1675,7 @@ connect_helper(PyGObject *self, gchar *name, PyObject *callback, PyObject *extra
 			     &sigid, &detail, TRUE)) {
 	PyObject *repr = PyObject_Repr((PyObject*)self);
 	PyErr_Format(PyExc_TypeError, "%s: unknown signal name: %s",
-		     PYGLIB_PyUnicode_AsString(repr),
+		     PyUnicode_AsUTF8 (repr),
 		     name);
 	Py_DECREF(repr);
 	return NULL;
@@ -1878,7 +1883,7 @@ pygobject_emit(PyGObject *self, PyObject *args)
 			     &signal_id, &detail, TRUE)) {
 	repr = PyObject_Repr((PyObject*)self);
 	PyErr_Format(PyExc_TypeError, "%s: unknown signal name: %s",
-		     PYGLIB_PyUnicode_AsString(repr),
+		     PyUnicode_AsUTF8 (repr),
 		     name);
 	Py_DECREF(repr);
 	return NULL;
@@ -1932,8 +1937,17 @@ pygobject_emit(PyGObject *self, PyObject *args)
     
     g_free(params);
     if ((query.return_type & ~G_SIGNAL_TYPE_STATIC_SCOPE) != G_TYPE_NONE) {
+      gboolean was_floating = FALSE;
+
+      if (G_VALUE_HOLDS_OBJECT (&ret)) {
+        GObject *obj = g_value_get_object (&ret);
+        if (obj != NULL && G_IS_OBJECT(obj)) {
+            was_floating = g_object_is_floating (obj);
+        }
+      }
 	py_ret = pyg_value_as_pyobject(&ret, TRUE);
-	g_value_unset(&ret);
+      if (!was_floating)
+	      g_value_unset(&ret);
     } else {
 	Py_INCREF(Py_None);
 	py_ret = Py_None;
@@ -2082,7 +2096,7 @@ pygobject_disconnect_by_func(PyGObject *self, PyObject *args)
     if (!closure) {
 	repr = PyObject_Repr((PyObject*)pyfunc);
 	PyErr_Format(PyExc_TypeError, "nothing connected to %s",
-		     PYGLIB_PyUnicode_AsString(repr));
+		     PyUnicode_AsUTF8 (repr));
 	Py_DECREF(repr);
 	return NULL;
     }
@@ -2116,7 +2130,7 @@ pygobject_handler_block_by_func(PyGObject *self, PyObject *args)
     if (!closure) {
 	repr = PyObject_Repr((PyObject*)pyfunc);
 	PyErr_Format(PyExc_TypeError, "nothing connected to %s",
-		     PYGLIB_PyUnicode_AsString(repr));
+		     PyUnicode_AsUTF8 (repr));
 	Py_DECREF(repr);
 	return NULL;
     }
@@ -2150,7 +2164,7 @@ pygobject_handler_unblock_by_func(PyGObject *self, PyObject *args)
     if (!closure) {
 	repr = PyObject_Repr((PyObject*)pyfunc);
 	PyErr_Format(PyExc_TypeError, "nothing connected to %s",
-		     PYGLIB_PyUnicode_AsString(repr));
+		     PyUnicode_AsUTF8 (repr));
 	Py_DECREF(repr);
 	return NULL;
     }
@@ -2244,7 +2258,7 @@ typedef struct {
     gboolean have_floating_ref;
 } PyGObjectWeakRef;
 
-PYGLIB_DEFINE_TYPE("gi._gi.GObjectWeakRef", PyGObjectWeakRef_Type, PyGObjectWeakRef);
+PYGI_DEFINE_TYPE("gi._gi.GObjectWeakRef", PyGObjectWeakRef_Type, PyGObjectWeakRef);
 
 static int
 pygobject_weak_ref_traverse(PyGObjectWeakRef *self, visitproc visit, void *arg)
@@ -2453,7 +2467,7 @@ pyi_object_register_types(PyObject *d)
     descr = PyObject_New(PyObject, &PyGPropsDescr_Type);
     PyDict_SetItemString(PyGObject_Type.tp_dict, "props", descr);
     PyDict_SetItemString(PyGObject_Type.tp_dict, "__module__",
-                        o=PYGLIB_PyUnicode_FromString("gi._gi"));
+                        o=PyUnicode_FromString ("gi._gi"));
     Py_DECREF(o);
 
     /* GPropsIter */
@@ -2485,8 +2499,9 @@ pyg_object_new (PyGObject *self, PyObject *args, PyObject *kwargs)
     GType type;
     GObject *obj = NULL;
     GObjectClass *class;
-    guint n_params = 0, i;
-    GParameter *params = NULL;
+    guint n_properties = 0, i;
+    const GValue *values = NULL;
+    const char **names = NULL;
 
     if (!PyArg_ParseTuple (args, "O:gobject.new", &pytype)) {
 	return NULL;
@@ -2507,22 +2522,22 @@ pyg_object_new (PyGObject *self, PyObject *args, PyObject *kwargs)
 	return NULL;
     }
 
-    if (!pygobject_prepare_construct_properties (class, kwargs, &n_params, &params))
+    if (!pygobject_prepare_construct_properties (class, kwargs, &n_properties, &names, &values))
         goto cleanup;
 
-G_GNUC_BEGIN_IGNORE_DEPRECATIONS
-    obj = g_object_newv(type, n_params, params);
-G_GNUC_END_IGNORE_DEPRECATIONS
+    obj = pygobject_object_new_with_properties(type, n_properties, names, values);
 
     if (!obj)
 	PyErr_SetString (PyExc_RuntimeError, "could not create object");
 
  cleanup:
-    for (i = 0; i < n_params; i++) {
-	g_free((gchar *) params[i].name);
-	g_value_unset(&params[i].value);
+    for (i = 0; i < n_properties; i++) {
+        g_free(names[i]);
+        g_value_unset(&values[i]);
     }
-    g_free(params);
+    g_free(names);
+    g_free(values);
+
     g_type_class_unref(class);
 
     if (obj) {

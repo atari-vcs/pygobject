@@ -25,7 +25,7 @@
 #include "pygi-util.h"
 #include "pygi-basictype.h"
 
-PYGLIB_DEFINE_TYPE("gi._gi.OptionContext", PyGOptionContext_Type, PyGOptionContext)
+PYGI_DEFINE_TYPE("gi._gi.OptionContext", PyGOptionContext_Type, PyGOptionContext)
 
 /**
  * pyg_option_group_transfer_group:
@@ -151,7 +151,7 @@ pyg_option_context_parse(PyGOptionContext *self,
     for (pos = 0; pos < argv_length; pos++)
     {
         arg = PyList_GetItem(argv, pos);
-        argv_content[pos] = g_strdup(PYGLIB_PyUnicode_AsString(arg));
+        argv_content[pos] = g_strdup(PyUnicode_AsUTF8 (arg));
         if (argv_content[pos] == NULL)
         {
             g_strfreev(argv_content);
@@ -179,7 +179,7 @@ pyg_option_context_parse(PyGOptionContext *self,
     new_argv = PyList_New(g_strv_length(argv_content));
     for (pos = 0; pos < argv_length; pos++)
     {
-        arg = PYGLIB_PyUnicode_FromString(argv_content[pos]);
+        arg = PyUnicode_FromString (argv_content[pos]);
         PyList_SetItem(new_argv, pos, arg);
     }
 
@@ -368,7 +368,12 @@ pygi_option_context_register_types(PyObject *d)
     PyGOptionContext_Type.tp_flags = Py_TPFLAGS_DEFAULT;
     PyGOptionContext_Type.tp_methods = pyg_option_context_methods;
     PyGOptionContext_Type.tp_init = (initproc)pyg_option_context_init;
-    PYGLIB_REGISTER_TYPE(d, PyGOptionContext_Type, "OptionContext");
+    PyGOptionContext_Type.tp_alloc = PyType_GenericAlloc;
+    PyGOptionContext_Type.tp_new = PyType_GenericNew;
+    if (PyType_Ready(&PyGOptionContext_Type))
+        return -1;
+
+    PyDict_SetItemString(d, "OptionContext", (PyObject *)&PyGOptionContext_Type);
 
     return 0;
 }

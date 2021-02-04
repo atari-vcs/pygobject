@@ -20,13 +20,9 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301
 # USA
 
-from __future__ import absolute_import
 
 import unittest
-try:
-    from collections import abc
-except ImportError:
-    import collections as abc
+from collections import abc
 
 import gi._gi as GIRepository
 from gi.module import repository as repo
@@ -189,6 +185,13 @@ class Test(unittest.TestCase):
         self.assertTrue(info.is_gtype_struct())
         self.assertFalse(info.is_foreign())
 
+        info = repo.find_by_name('GIMarshallingTests', 'SimpleStruct')
+        assert info.find_method("nope") is None
+        assert isinstance(info.find_method("method"), GIRepository.FunctionInfo)
+
+        assert info.find_field("nope") is None
+        assert isinstance(info.find_field("int8"), GIRepository.FieldInfo)
+
     def test_enum_info(self):
         info = repo.find_by_name('GIMarshallingTests', 'Enum')
         self.assertTrue(isinstance(info, GIRepository.EnumInfo))
@@ -203,6 +206,7 @@ class Test(unittest.TestCase):
         self.assertTrue(isinstance(info.get_fields(), abc.Iterable))
         self.assertTrue(isinstance(info.get_methods(), abc.Iterable))
         self.assertTrue(isinstance(info.get_size(), int))
+        self.assertTrue(isinstance(info.get_alignment(), int))
 
     def test_type_info(self):
         func_info = repo.find_by_name('GIMarshallingTests', 'array_fixed_out_struct')

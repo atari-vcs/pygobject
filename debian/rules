@@ -1,9 +1,8 @@
 #!/usr/bin/make -f
 
 include /usr/share/dpkg/default.mk
-include /usr/share/python/python.mk
 
-PYVERS := $(shell pyversions --requested -v debian/control) $(shell py3versions --supported -v)
+PYVERS := $(shell py3versions --supported -v)
 FLAVOURS := $(PYVERS) $(patsubst %,%-dbg,$(PYVERS))
 
 TESTSUITE_FAIL_CMD=exit 1
@@ -19,7 +18,7 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
 
 %:
-	dh $@ --with python2,python3,gnome --buildsystem=pybuild
+	dh $@ --with python3,gnome --buildsystem=pybuild
 
 # don't run the tests under fakeroot, otherwise they will try to connect to
 # root's session D-BUS
@@ -42,14 +41,25 @@ ifeq ($(DEB_HOST_ARCH_OS), linux)
 endif
 endif
 
+override_dh_python3:
+	dh_python3 -O--buildsystem=pybuild
+	find debian/python3-gi-cairo  debian/python3-gi -name '*.cpython-*dm-*so' | xargs -r rm -fv
+
 override_dh_auto_install:
 	dh_auto_install
 	mkdir debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)
 	mv debian/tmp/usr/lib/pkgconfig debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)
 
+override_dh_install:
+	rm -fr debian/tmp/usr/lib/python*/dist-packages/__pycache__
+	rm -fr debian/tmp/usr/lib/python*/dist-packages/*/__pycache__
+	rm -fr debian/tmp/usr/lib/python*/dist-packages/*/*/__pycache__
+	rm -f debian/tmp/usr/lib/python*/dist-packages/*.pyc
+	rm -f debian/tmp/usr/lib/python*/dist-packages/*/*.pyc
+	rm -f debian/tmp/usr/lib/python*/dist-packages/*/*/*.pyc
+	dh_install
+
 override_dh_strip-arch:
-	dh_strip -ppython-gi --dbg-package=python-gi-dbg
-	dh_strip -ppython-gi-cairo --dbg-package=python-gi-dbg
 	dh_strip -ppython3-gi --dbg-package=python3-gi-dbg
 	dh_strip -a --remaining-packages --no-automatic-dbgsym
 
@@ -60,3 +70,6 @@ override_dh_makeshlibs:
 
 override_dh_installchangelogs:
 	dh_installchangelogs -XChangeLog
+
+override_dh_missing:
+	dh_missing --fail-missing

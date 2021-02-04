@@ -23,13 +23,7 @@
 
 #include <Python.h>
 #include <cairo.h>
-
-#if PY_VERSION_HEX < 0x03000000
-#include <pycairo.h>
-static Pycairo_CAPI_t *Pycairo_CAPI;
-#else
 #include <py3cairo.h>
-#endif
 
 #include <cairo-gobject.h>
 
@@ -38,7 +32,6 @@ static Pycairo_CAPI_t *Pycairo_CAPI;
  * shared library that interacts with PyGI through a PyCapsule API at runtime.
  */
 #include <pygi-foreign-api.h>
-#include "pygi-python-compat.h"
 
 /*
  * cairo_t marshaling
@@ -118,7 +111,7 @@ cairo_context_from_gvalue (const GValue *value)
     /* PycairoContext_FromContext steals a ref, so we dup it out of the GValue. */
     cairo_t *cr = g_value_dup_boxed (value);
     if (!cr) {
-        return NULL;
+        Py_RETURN_NONE;
     }
 
     return PycairoContext_FromContext (cr, &PycairoContext_Type, NULL);
@@ -203,7 +196,7 @@ cairo_surface_from_gvalue (const GValue *value)
     /* PycairoSurface_FromSurface steals a ref, so we dup it out of the GValue. */
     cairo_surface_t *surface = g_value_dup_boxed (value);
     if (!surface) {
-        return NULL;
+        Py_RETURN_NONE;
     }
 
     return PycairoSurface_FromSurface (surface, NULL);
@@ -308,7 +301,7 @@ cairo_font_face_from_gvalue (const GValue *value)
 {
     cairo_font_face_t *font_face = g_value_dup_boxed (value);
     if (!font_face) {
-        return NULL;
+        Py_RETURN_NONE;
     }
 
     return PycairoFontFace_FromFontFace (font_face);
@@ -398,7 +391,7 @@ cairo_scaled_font_from_gvalue (const GValue *value)
     /* PycairoScaledFont_FromScaledFont steals a ref, so we dup it out of the GValue. */
     cairo_scaled_font_t *scaled_font = g_value_dup_boxed (value);
     if (!scaled_font) {
-        return NULL;
+        Py_RETURN_NONE;
     }
 
     return PycairoScaledFont_FromScaledFont (scaled_font);
@@ -408,6 +401,53 @@ cairo_scaled_font_from_gvalue (const GValue *value)
 /*
  * cairo_pattern_t marshaling
  */
+
+static PyObject *
+cairo_pattern_to_arg (PyObject        *value,
+                      GIInterfaceInfo *interface_info,
+                      GITransfer       transfer,
+                      GIArgument      *arg)
+{
+    cairo_pattern_t *pattern;
+
+    if (!PyObject_TypeCheck (value, &PycairoPattern_Type)) {
+        PyErr_SetString (PyExc_TypeError, "Expected cairo.Pattern");
+        return NULL;
+    }
+
+    pattern = ((PycairoPattern*) value)->pattern;
+    if (!pattern) {
+        PyErr_SetString (PyExc_ValueError, "Pattern instance wrapping a NULL pattern");
+        return NULL;
+    }
+
+    if (transfer != GI_TRANSFER_NOTHING)
+        pattern = cairo_pattern_reference (pattern);
+
+    arg->v_pointer = pattern;
+    Py_RETURN_NONE;
+}
+
+static PyObject *
+cairo_pattern_from_arg (GIInterfaceInfo *interface_info,
+                        GITransfer       transfer,
+                        gpointer         data)
+{
+    cairo_pattern_t *pattern = (cairo_pattern_t*) data;
+
+    if (transfer == GI_TRANSFER_NOTHING)
+        pattern = cairo_pattern_reference (pattern);
+
+    return PycairoPattern_FromPattern (pattern, NULL);
+}
+
+static PyObject *
+cairo_pattern_release (GIBaseInfo *base_info,
+                       gpointer    struct_)
+{
+    cairo_pattern_destroy ( (cairo_pattern_t*) struct_);
+    Py_RETURN_NONE;
+}
 
 static int
 cairo_pattern_to_gvalue (GValue *value, PyObject *obj)
@@ -436,7 +476,7 @@ cairo_pattern_from_gvalue (const GValue *value)
     /* PycairoPattern_FromPattern steals a ref, so we dup it out of the GValue. */
     cairo_pattern_t *pattern = g_value_dup_boxed (value);
     if (!pattern) {
-        return NULL;
+        Py_RETURN_NONE;
     }
 
     return PycairoPattern_FromPattern (pattern, NULL);
@@ -536,23 +576,73 @@ cairo_matrix_release (GIBaseInfo *base_info,
     Py_RETURN_NONE;
 }
 
-static PyMethodDef _gi_cairo_functions[] = { {0,} };
-PYGLIB_MODULE_START(_gi_cairo, "_gi_cairo")
+static int
+cairo_matrix_to_gvalue (GValue *value, PyObject *obj)
 {
-    PyObject *gobject_mod;
+    cairo_matrix_t *matrix;
 
-#if PY_VERSION_HEX < 0x03000000
-    Pycairo_IMPORT;
+    if (!PyObject_TypeCheck (obj, &PycairoMatrix_Type)) {
+        PyErr_SetString (PyExc_TypeError, "Expected cairo.Matrix");
+        return -1;
+    }
+
+    matrix = &(( (PycairoMatrix*) obj)->matrix);
+    if (!matrix) {
+        return -1;
+    }
+
+    g_value_set_boxed (value, matrix);
+    return 0;
+}
+
+static PyObject *
+cairo_matrix_from_gvalue (const GValue *value)
+{
+    cairo_matrix_t *matrix = g_value_get_boxed(value);
+    if (!matrix) {
+        Py_RETURN_NONE;
+    }
+
+    return PycairoMatrix_FromMatrix (matrix);
+}
+
+#ifdef __GNUC__
+#define PYGI_MODINIT_FUNC __attribute__((visibility("default"))) PyMODINIT_FUNC
 #else
-    import_cairo();
+#define PYGI_MODINIT_FUNC PyMODINIT_FUNC
 #endif
 
+static PyMethodDef _gi_cairo_functions[] = { {0,} };
+
+static struct PyModuleDef __gi_cairomodule = {
+    PyModuleDef_HEAD_INIT,
+    "_gi_cairo",
+    NULL,
+    -1,
+    _gi_cairo_functions,
+    NULL,
+    NULL,
+    NULL,
+    NULL
+};
+
+PYGI_MODINIT_FUNC PyInit__gi_cairo (void);
+
+PYGI_MODINIT_FUNC PyInit__gi_cairo (void)
+{
+    PyObject *module;
+    module = PyModule_Create (&__gi_cairomodule);
+
+    PyObject *gobject_mod;
+
+    import_cairo();
+
     if (Pycairo_CAPI == NULL)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
 
     gobject_mod = pygobject_init (3, 13, 2);
     if (gobject_mod == NULL)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     Py_DECREF (gobject_mod);
 
     pygi_register_foreign_struct ("cairo",
@@ -586,10 +676,20 @@ PYGLIB_MODULE_START(_gi_cairo, "_gi_cairo")
                                   cairo_font_options_release);
 
     pygi_register_foreign_struct ("cairo",
+                                  "Pattern",
+                                  cairo_pattern_to_arg,
+                                  cairo_pattern_from_arg,
+                                  cairo_pattern_release);
+
+    pygi_register_foreign_struct ("cairo",
                                   "Region",
                                   cairo_region_to_arg,
                                   cairo_region_from_arg,
                                   cairo_region_release);
+
+    pyg_register_gtype_custom (CAIRO_GOBJECT_TYPE_MATRIX,
+                               cairo_matrix_from_gvalue,
+                               cairo_matrix_to_gvalue);
 
     pyg_register_gtype_custom (CAIRO_GOBJECT_TYPE_CONTEXT,
                                cairo_context_from_gvalue,
@@ -611,5 +711,5 @@ PYGLIB_MODULE_START(_gi_cairo, "_gi_cairo")
                                cairo_pattern_from_gvalue,
                                cairo_pattern_to_gvalue);
 
+    return module;
 }
-PYGLIB_MODULE_END;

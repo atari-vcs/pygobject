@@ -58,6 +58,7 @@ gnome.generate_gir(
   symbol_prefix : 'gi_marshalling_tests',
   includes : ['Gio-2.0'],
   build_by_default : true,
+  extra_args: ['--quiet'],
 )
 
 regress_sources += ['regressextra.c']
@@ -67,7 +68,7 @@ regress_headers += ['regressextra.h']
 regress_deps = [glib_dep, gobject_dep, gio_dep, gmodule_dep]
 regress_c_args = []
 
-if with_pycairo
+if cairo_dep.found()
   regress_deps += [cairo_dep, cairo_gobject_dep]
 else
   regress_c_args += ['-D_GI_DISABLE_CAIRO']
@@ -89,7 +90,7 @@ gnome.generate_gir(
   includes : ['Gio-2.0', 'cairo-1.0'],
   build_by_default : true,
   dependencies : regress_deps,
-  extra_args: regress_c_args,
+  extra_args: regress_c_args + ['--quiet'],
 )
 
 helper_sources = [
@@ -120,7 +121,7 @@ if host_machine.system() == 'windows'
 endif
 
 python_paths = [join_paths(meson.current_build_dir(), '..')]
-if with_pycairo and pycairo_dep.type_name() == 'internal'
+if pycairo_dep.found() and pycairo_dep.type_name() == 'internal'
   python_paths += [join_paths(meson.build_root(), 'subprojects', 'pycairo')]
 endif
 envdata.append('PYTHONPATH', python_paths)
