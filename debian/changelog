@@ -1,3 +1,10 @@
+pygobject (3.30.4-1co1) apertis; urgency=medium
+
+  [ Ritesh Raj Sarraf ]
+  * debian/apertis/component: Set to development
+
+ -- Emanuele Aina <emanuele.aina@collabora.com>  Mon, 22 Feb 2021 01:35:05 +0000
+
 pygobject (3.30.4-1) unstable; urgency=medium
 
   * New upstream release
