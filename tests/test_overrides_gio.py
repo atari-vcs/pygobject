@@ -1,12 +1,11 @@
-from __future__ import absolute_import
-
 import random
 import platform
+import warnings
 
 import pytest
 
 from gi.repository import Gio, GObject
-from gi._compat import cmp
+from gi import PyGIWarning
 
 
 class Item(GObject.Object):
@@ -40,6 +39,7 @@ def test_list_store_sort():
         assert list(args) == user_data
         assert isinstance(a, NamedItem)
         assert isinstance(b, NamedItem)
+        cmp = lambda a, b: (a > b) - (a < b)
         return cmp(a.props.name, b.props.name)
 
     store[:] = items
@@ -59,6 +59,7 @@ def test_list_store_insert_sorted():
         assert list(args) == user_data
         assert isinstance(a, NamedItem)
         assert isinstance(b, NamedItem)
+        cmp = lambda a, b: (a > b) - (a < b)
         return cmp(a.props.name, b.props.name)
 
     for item in items:
@@ -344,3 +345,16 @@ def test_action_map_add_action_entries():
 
     actionmap.activate_action("simple")
     assert test_data[0] == 'test back'
+
+
+def test_types_init_warn():
+    types = [
+        Gio.DBusAnnotationInfo, Gio.DBusArgInfo, Gio.DBusMethodInfo,
+        Gio.DBusSignalInfo, Gio.DBusInterfaceInfo, Gio.DBusNodeInfo,
+    ]
+
+    for t in types:
+        with warnings.catch_warnings(record=True) as warn:
+            warnings.simplefilter('always')
+            t()
+            assert issubclass(warn[0].category, PyGIWarning)

@@ -1,5 +1,5 @@
 project('pygobject', 'c',
-  version : '3.30.4',
+  version : '3.38.0',
   meson_version : '>= 0.46.0',
   default_options : [ 'warning_level=1',
                       'buildtype=debugoptimized'])
@@ -15,9 +15,13 @@ platform_version = '@0@.0'.format(pygobject_version_major)
 pymod = import('python')
 python = pymod.find_installation(get_option('python'))
 
+if python.language_version().version_compare('< 3.5')
+  error('Requires Python >= 3.5')
+endif
+
 python_dep = python.dependency()
 
-glib_version_req = '>= 2.38.0'
+glib_version_req = '>= 2.48.0'
 gi_version_req = '>= 1.46.0'
 pycairo_version_req = '>= 1.11.1'
 libffi_version_req = '>= 3.0'
@@ -39,29 +43,26 @@ with_pycairo = get_option('pycairo')
 
 cc = meson.get_compiler('c')
 
-if with_pycairo
-  cairo_dep = dependency('cairo', required: cc.get_id() != 'msvc')
-  cairo_gobject_dep = dependency('cairo-gobject', required: cc.get_id() != 'msvc')
+if not with_pycairo.disabled()
+  cairo_dep = dependency('cairo', required: with_pycairo.enabled() and cc.get_id() != 'msvc')
+  cairo_gobject_dep = dependency('cairo-gobject', required: with_pycairo.enabled() and cc.get_id() != 'msvc')
 
   if cc.get_id() == 'msvc' and (not cairo_gobject_dep.found() or not cairo_dep.found())
     if cc.has_header('cairo.h') and cc.has_header ('cairo-gobject.h')
-      cairo_dep = cc.find_library ('cairo')
-      cairo_gobject_dep = cc.find_library ('cairo-gobject')
+      cairo_dep = cc.find_library ('cairo', required: with_pycairo)
+      cairo_gobject_dep = cc.find_library ('cairo-gobject', required: with_pycairo)
     endif
   endif
 
-  if python.language_version().version_compare('>= 3.0')
-    pycairo_name = 'py3cairo'
-  else
-    pycairo_name = 'pycairo'
-  endif
-
   pycairo_dep = dependency(
-    pycairo_name,
+    'py3cairo',
     version: pycairo_version_req,
     fallback: ['pycairo', 'pycairo_dep'],
     default_options: ['python=' + get_option('python')],
+    required: with_pycairo,
   )
+else
+  cairo_dep = dependency('', required: false)
 endif
 
 main_c_args = []
@@ -72,7 +73,6 @@ else
     '-Wall',
     '-Warray-bounds',
     '-Wcast-align',
-    '-Wdeclaration-after-statement',
     '-Wduplicated-branches',
     '-Wextra',
     '-Wformat=2',
@@ -98,10 +98,17 @@ else
     '-Wsign-compare',
     '-Wstrict-aliasing',
     '-Wstrict-prototypes',
+    '-Wswitch-default',
     '-Wundef',
     '-Wunused-but-set-variable',
     '-Wwrite-strings',
   ]
+
+  if python.language_version().split('.')[0] == '2'
+    main_c_args += [
+        '-Wdeclaration-after-statement',
+    ]
+  endif
 
   main_c_args += [
     '-Wno-incompatible-pointer-types-discards-qualifiers',
@@ -117,12 +124,6 @@ else
     '-fno-strict-aliasing',
     '-fvisibility=hidden',
   ]
-
-  if not ['3.3', '3.4'].contains(python.language_version())
-    main_c_args += [
-      '-Wswitch-default',
-    ]
-  endif
 
   main_c_args = cc.get_supported_arguments(main_c_args)
 endif
@@ -170,8 +171,11 @@ pkginfo_conf.set('VERSION', py_version)
 configure_file(input : 'PKG-INFO.in',
   output : 'PyGObject-@0@.egg-info'.format(py_version),
   configuration : pkginfo_conf,
-  install_dir : python.get_install_dir())
+  install_dir : python.get_install_dir(pure : false))
 
 subdir('gi')
 subdir('pygtkcompat')
+with_tests = get_option('tests')
+if with_tests
 subdir('tests')
+endif

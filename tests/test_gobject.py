@@ -1,11 +1,11 @@
 # -*- Mode: Python -*-
 
-from __future__ import absolute_import
-
 import sys
 import gc
 import unittest
 import warnings
+import weakref
+import platform
 
 import pytest
 
@@ -15,6 +15,54 @@ from gi.module import get_introspection_module
 from gi import _gi
 
 import testhelper
+from .helper import capture_glib_deprecation_warnings
+
+
+@pytest.mark.skipif(platform.python_implementation() == "PyPy", reason="crashes")
+def test_gobject_weak_ref():
+
+    called = []
+
+    def callback(*args):
+        called.extend(args)
+
+    # object gets finalized
+    obj = GObject.Object()
+    obj.weak_ref(callback, 1)
+    del obj
+    gc.collect()
+    gc.collect()
+    assert called == [1]
+    del called[:]
+
+    # wrapper gets finalized first
+    obj = GObject.Object()
+    pyref = weakref.ref(obj, lambda x: callback(-2))
+    value = GObject.Value(GObject.Object, obj)
+    ref = obj.weak_ref(callback, 2)
+    del obj
+    gc.collect()
+    assert called == [-2]
+    del pyref
+    value.unset()
+    gc.collect()
+    assert called == [-2, 2]
+    del called[:]
+
+    # weakref gets unregistered first
+    obj = GObject.Object()
+    ref = obj.weak_ref(callback, 3)
+    ref.unref()
+    del obj
+    gc.collect()
+    assert not called
+
+    # weakref gets GCed
+    obj = GObject.Object()
+    obj.weak_ref(callback, 4)
+    gc.collect()
+    del obj
+    assert called == [4]
 
 
 class TestGObjectAPI(unittest.TestCase):
@@ -463,6 +511,14 @@ class TestPropertyBindings(unittest.TestCase):
         self.assertEqual(self.source.int_prop, 1)
         self.assertEqual(self.target.int_prop, 2)
 
+    def test_call_binding(self):
+        binding = self.source.bind_property('int_prop', self.target, 'int_prop',
+                                            GObject.BindingFlags.DEFAULT)
+        with capture_glib_deprecation_warnings() as warn:
+            result = binding()
+        assert len(warn)
+        assert result is binding
+
     def test_bidirectional_binding(self):
         binding = self.source.bind_property('int_prop', self.target, 'int_prop',
                                             GObject.BindingFlags.BIDIRECTIONAL)
@@ -657,12 +713,6 @@ class TestGValue(unittest.TestCase):
         value.set_value(42.0)
         self.assertEqual(value.get_value(), 42)
 
-    def test_multi_del(self):
-        value = GObject.Value(str, 'foo_bar')
-        value.__del__()
-        value.__del__()
-        del value
-
     def test_string(self):
         value = GObject.Value(str, 'foo_bar')
         self.assertEqual(value.g_type, GObject.TYPE_STRING)
@@ -752,8 +802,8 @@ class TestGValue(unittest.TestCase):
 
 def test_list_properties():
 
-    def find_param(l, name):
-        for param in l:
+    def find_param(props, name):
+        for param in props:
             if param.name == name:
                 return param
         return
@@ -770,8 +820,8 @@ def test_list_properties():
     props = list_props(Gio.SimpleAction)
     assert find_param(props, "enabled")
 
-    def names(l):
-        return [p.name for p in l]
+    def names(props):
+        return [p.name for p in props]
 
     assert (set(names(list_props(Gio.Action))) <=
             set(names(list_props(Gio.SimpleAction))))

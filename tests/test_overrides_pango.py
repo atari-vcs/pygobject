@@ -1,8 +1,6 @@
 # -*- Mode: Python; py-indent-offset: 4 -*-
 # vim: tabstop=4 shiftwidth=4 expandtab
 
-from __future__ import absolute_import
-
 import unittest
 
 try:
@@ -33,6 +31,26 @@ class TestPango(unittest.TestCase):
 
         layout.set_markup("Foobar")
         self.assertEqual(layout.get_text(), "Foobar")
+
+    def test_layout_set_markup(self):
+        context = Pango.Context()
+        layout = Pango.Layout(context)
+        layout.set_markup("abc")
+        assert layout.get_text() == "abc"
+        layout.set_markup("abc", -1)
+        assert layout.get_text() == "abc"
+        layout.set_markup("abc", 2)
+        assert layout.get_text() == "ab"
+
+    def test_layout_set_test(self):
+        context = Pango.Context()
+        layout = Pango.Layout(context)
+        layout.set_text("abc")
+        assert layout.get_text() == "abc"
+        layout.set_text("abc", -1)
+        assert layout.get_text() == "abc"
+        layout.set_text("abc", 2)
+        assert layout.get_text() == "ab"
 
     def test_break_keyword_escape(self):
         # https://bugzilla.gnome.org/show_bug.cgi?id=697363

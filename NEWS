@@ -1,8 +1,139 @@
+3.38.0 - 2020-09-12
+-------------------
+
+* Python 2 is no longer supported.
+
+  Note for distros/packagers:
+      In case you want to keep Python 2 support you'll likely split any existing
+      package into a Python 2 and 3 version. Since these aren't parallel installable
+      here are some recommendations on how to make it work:
+
+      * Build the devel package from the Python 3 source package
+      * Drop the headers/.pc files from the Python 2 build/package
+      * Make sure no Python 2 using package depends on the devel package
+        (@Arch: gnumeric can be build without Python support for example)
+
+      See :issue:`392` for details
+
+* meson: Make the `pycairo` option a feature :mr:`146` :mr:`147`
+* gdk overrides: Fix wrapping of scroll events :mr:`141`
+* Add overrides for Gtk.Button set/get_focus_on_click :mr:`132`
+
+
+3.36.1 - 2020-05-06
+-------------------
+
+* tests: Fix failing tests with pytest 5.4.0+
+* Gtk: Add override to make sure both TreeModelSort.new_with_model and
+  TreeModel.sort_new_with_model exist independend of the gtk version
+* Gtk.Template: Fix initialisation order errors with Widgets getting created from C
+  (potentially through other templates) :issue:`257` :issue:`386` :issue:`341` :mr:`140` (:user:`Jean Felder <jfelder>`)
+* Gtk.Template: Fix errors when calling init_template() multiple times :mr:`140` (:user:`Jean Felder <jfelder>`)
+
+
+3.36.0 - 2020-03-08
+-------------------
+
+This will be the last release supporting Python 2.
+
+* pygobject-object: Avoid checking whether NULL is floating :mr:`135` (:user:`Alexandru Băluț <aleb>`)
+* Avoid various new glib deprecation warnings
+* Port to g_object_new_with_properties()
+* Drop Python 2 support on Windows
+* gtk overrides: Drop Menu, MenuItem for Gtk 4 (:user:`Marinus Schraal <mschraal>`)
+* Docs:
+
+  * Update openSUSE instructions (:user:`sharkwouter`)
+  * Add Gaphor to Who is Using PyGObject (:user:`Dan Yeaw <danyeaw>`)
+  * Remove reference to a fixed bug (:user:`Christian Stadelmann <genodeftest>`)
+
+
+3.34.0 - 2019-09-09
+-------------------
+
+* No changes since 3.33.1
+
+
+3.33.1 - 2019-08-18
+-------------------
+
+* Make GLib.Variant.unpack a bit less costly :mr:`121` (:user:`Mathieu Bridon <mbridon>`)
+* pygobject: ignore GParameter deprecations :mr:`122` (:user:`Christian Hergert <chergert>`)
+* pygobject-object: fix refcount of floating return values :mr:`120` (:user:`Mathieu Duponchelle <mathieudu>`)
+* pygi-info: remove some dead code :issue:`303`
+
+
+3.32.2 - 2019-06-23
+-------------------
+
+* Python 3.8b1 compatibility fixes
+* tests: fix a test error when run under wayland
+* setup.py: specify python_requires
+
+
+3.30.5 - 2019-06-16
+-------------------
+
+* tests/gimarshallingtestsextra.c/h: relicense to LGPLv2.1+ :issue:`320`
+* Fix a crash when marshalling a GError to Python fails :mr:`115`
+* Fix leak of transfer-full/container C arrays :mr:`117` (:user:`Tomasz Miąsko <tmiasko>`)
+* Python 3.8b1 compatibility fixes
+
+
+3.32.1 - 2019-04-20
+-------------------
+
+* tests/gimarshallingtestsextra.c/h: relicense to LGPLv2.1+ :issue:`320`
+* meson: add ``tests`` option for disabling tests :mr:`113` (:user:`Adam Duskett <aduskett>`)
+* meson: tests: pass ``--quiet`` to g-ir-scanner :mr:`114` (:user:`Tim-Philipp Müller <tpm>`)
+* Fix a crash when marshalling a GError to Python fails :mr:`115`
+* Fix leak of transfer-full/container C arrays :mr:`117` (:user:`Tomasz Miąsko <tmiasko>`)
+
+
+3.32.0 - 2019-03-10
+-------------------
+
+* No changes since 3.31.4
+
+
+3.31.4 - 2019-03-07
+-------------------
+
+* docs: document GObject.Object.weak_ref() :issue:`245`
+* cairo: Add cairo pattern foreign struct support :mr:`111` (:user:`Renato Florentino Garcia <renato_garcia>`)
+* cairo: Add cairo_matrix_t converter to GValue :mr:`112` (:user:`Renato Florentino Garcia <renato_garcia>`)
+
+
+3.31.3 - 2019-02-02
+-------------------
+
+* Speed up destruction of boxed types :mr:`106` and GObject.Value.set_value() calls.
+  This makes appending to a Gtk.TreeModel nearly twice as fast for example :issue:`46`, :issue:`218`
+* Allow passing None for boolean parameters
+* meson: Install .egg-info directory to arch'd dir. :mr:`109` (:user:`Elliott Sales de Andrade <QuLogic>`)
+* gtk overrides: raise in case Gtk.Window is instantiated after gtk_init failed :issue:`298`
+* gio overrides: Warn when creating various dbus types without a constructor :issue:`15`
+* tests: Fix tests with glib 2.59.x :issue:`287`
+* tests: fix test_atoms failing in some environments :issue:`300`
+
+
+3.31.2 - 2018-12-15
+-------------------
+
+* Changes included in 3.30.4
+* GLib.Variant.keys: correctly raise TypeError for non-dict types
+* GLib.Variant: implement __bool__ for maybe types
+* cairo: Fix GValue converters in case of NULL
+* setup.py: Print an install command hint when pkg-config is missing
+* pygi-info: wrap g_union_info_get_alignment()
+  :mr:`105` (:user:`Tomasz Miąsko <tmiasko>`)
+
+
 3.30.4 - 2018-11-30
 -------------------
 
 * gtk overrides: Fix rows getting inserted on the wrong level with
-  TreeStore.insert_before/inster_after if parent=None.
+  TreeStore.insert_before/insert_after if parent=None.
   :issue:`281` (3.30 regression, thanks to :user:`Cian Wilson <cianwilson>`
   for the report)
 
@@ -16,6 +147,21 @@
 * Fix GObject attribute access during instance init which can lead to errors
   with __getattr__ implementations of subclasses. This lead to criticals when
   instantiating Gio.DBusProxy. :issue:`267`
+
+
+3.31.1 - 2018-11-17
+-------------------
+
+* Changes included in 3.30.2
+* overrides: add Pango.Layout.set_text() override. :issue:`259` :mr:`89`
+* docs: link updates :mr:`93` (:user:`tijder`)
+* overrides: Use functools.wraps instead of custom version.
+  :issue:`271` :mr:`95` (:user:`Kai Willadsen <kaiw>`)
+* tests: Make tests run with current gtk4 master
+* Add (again) a pyproject.toml for specifying the pycairo build dep
+  (requires pip >=18.0)
+* setup.py: Make it possible to build without cairo support through the
+  PYGOBJECT_WITHOUT_PYCAIRO env var. :issue:`250`
 
 
 3.30.2 - 2018-11-11

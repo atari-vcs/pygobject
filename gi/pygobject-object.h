@@ -3,7 +3,6 @@
 
 #include <Python.h>
 #include <glib-object.h>
-#include "pygi-python-compat.h"
 #include "pygobject-internal.h"
 
 /* Data that belongs to the GObject instance, not the Python wrapper */
@@ -33,10 +32,6 @@ pyg_object_peek_inst_data(GObject *obj)
             g_object_get_qdata(obj, pygobject_instance_data_key));
 }
 
-gboolean      pygobject_prepare_construct_properties  (GObjectClass *class,
-                                                       PyObject *kwargs,
-                                                       guint *n_params,
-                                                       GParameter **params);
 void          pygobject_register_class   (PyObject *dict,
                                           const gchar *type_name,
                                           GType gtype, PyTypeObject *type,

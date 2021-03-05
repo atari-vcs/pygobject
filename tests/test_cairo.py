@@ -1,8 +1,5 @@
 # -*- Mode: Python; py-indent-offset: 4 -*-
-# coding=utf-8
 # vim: tabstop=4 shiftwidth=4 expandtab
-
-from __future__ import absolute_import
 
 import unittest
 import pytest
@@ -30,6 +27,29 @@ from gi.repository import GObject, Regress
 
 @unittest.skipUnless(has_cairo, 'built without cairo support')
 class Test(unittest.TestCase):
+
+    def test_gvalue_converters(self):
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 10, 10)
+        context = cairo.Context(surface)
+        matrix = cairo.Matrix()
+        objects = {
+            'CairoContext': context,
+            'CairoSurface': surface,
+            'CairoFontFace': context.get_font_face(),
+            'CairoScaledFont': context.get_scaled_font(),
+            'CairoPattern': context.get_source(),
+            'CairoMatrix': matrix,
+        }
+        for type_name, cairo_obj in objects.items():
+            gtype = GObject.type_from_name(type_name)
+            v = GObject.Value()
+            assert v.init(gtype) is None
+            assert v.get_value() is None
+            v.set_value(None)
+            assert v.get_value() is None
+            v.set_value(cairo_obj)
+            assert v.get_value() == cairo_obj
+
     def test_cairo_context(self):
         context = Regress.test_cairo_context_full_return()
         self.assertTrue(isinstance(context, cairo.Context))
@@ -93,6 +113,27 @@ class Test(unittest.TestCase):
     def test_cairo_font_options_none_in(self):
         options = cairo.FontOptions()
         Regress.test_cairo_font_options_none_in(options)
+
+    def test_cairo_pattern_full_in(self):
+        pattern = cairo.SolidPattern(1, 1, 1, 1)
+        Regress.test_cairo_pattern_full_in(pattern)
+
+        with pytest.raises(TypeError):
+            Regress.test_cairo_pattern_full_in(object())
+
+    def test_cairo_pattern_none_in(self):
+        pattern = cairo.SolidPattern(1, 1, 1, 1)
+        Regress.test_cairo_pattern_none_in(pattern)
+
+    def test_cairo_pattern_full_return(self):
+        pattern = Regress.test_cairo_pattern_full_return()
+        self.assertTrue(isinstance(pattern, cairo.Pattern))
+        self.assertTrue(isinstance(pattern, cairo.SolidPattern))
+
+    def test_cairo_pattern_none_return(self):
+        pattern = Regress.test_cairo_pattern_none_return()
+        self.assertTrue(isinstance(pattern, cairo.Pattern))
+        self.assertTrue(isinstance(pattern, cairo.SolidPattern))
 
     def test_cairo_region_full_in(self):
         region = cairo.Region()
@@ -180,9 +221,16 @@ class TestRegion(unittest.TestCase):
 @unittest.skipUnless(has_cairo, 'built without cairo support')
 @unittest.skipUnless(Gtk, 'Gtk not available')
 class TestPango(unittest.TestCase):
+
     def test_cairo_font_options(self):
-        screen = Gtk.Window().get_screen()
-        font_opts = screen.get_font_options()
+        window = Gtk.Window()
+        if Gtk._version == "4.0":
+            window.set_font_options(cairo.FontOptions())
+            font_opts = window.get_font_options()
+        else:
+            screen = window.get_screen()
+            font_opts = screen.get_font_options()
+        assert font_opts is not None
         self.assertTrue(isinstance(font_opts.get_subpixel_order(), int))
 
 

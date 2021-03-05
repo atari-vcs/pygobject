@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 # -*- Mode: Python; py-indent-offset: 4 -*-
 # vim: tabstop=4 shiftwidth=4 expandtab
 #
@@ -32,7 +31,7 @@ import cairo
 import math
 
 
-UTF8_TEXT = u"I ♥ GTK+"
+UTF8_TEXT = u"I ♥ GTK"
 HEART = u"♥"
 BYTES_TEXT = UTF8_TEXT.encode("utf-8")
 BYTES_HEART = HEART.encode("utf-8")

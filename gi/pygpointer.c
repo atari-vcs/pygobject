@@ -30,7 +30,7 @@
 
 GQuark pygpointer_class_key;
 
-PYGLIB_DEFINE_TYPE("gobject.GPointer", PyGPointer_Type, PyGPointer);
+PYGI_DEFINE_TYPE("gobject.GPointer", PyGPointer_Type, PyGPointer);
 
 static void
 pyg_pointer_dealloc(PyGPointer *self)
@@ -51,10 +51,10 @@ pyg_pointer_richcompare(PyObject *self, PyObject *other, int op)
     }
 }
 
-static PYGLIB_Py_hash_t
+static Py_hash_t
 pyg_pointer_hash(PyGPointer *self)
 {
-    return PYGLIB_Py_hash_t_FromVoidPtr (pyg_pointer_get_ptr (self));
+    return (Py_hash_t)(gintptr)(pyg_pointer_get_ptr (self));
 }
 
 static PyObject *
@@ -65,7 +65,7 @@ pyg_pointer_repr(PyGPointer *self)
     g_snprintf(buf, sizeof(buf), "<%s at 0x%" G_GUINTPTR_FORMAT ">",
                g_type_name(self->gtype),
                (guintptr)pyg_pointer_get_ptr (self));
-    return PYGLIB_PyUnicode_FromString(buf);
+    return PyUnicode_FromString (buf);
 }
 
 static int
@@ -187,6 +187,8 @@ pyg_pointer_new(GType pointer_type, gpointer pointer)
 int
 pygi_pointer_register_types(PyObject *d)
 {
+    PyObject *pygtype;
+
     pygpointer_class_key     = g_quark_from_static_string("PyGPointer::class");
 
     PyGPointer_Type.tp_dealloc = (destructor)pyg_pointer_dealloc;
@@ -196,7 +198,16 @@ pygi_pointer_register_types(PyObject *d)
     PyGPointer_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
     PyGPointer_Type.tp_init = (initproc)pyg_pointer_init;
     PyGPointer_Type.tp_free = (freefunc)pyg_pointer_free;
-    PYGOBJECT_REGISTER_GTYPE(d, PyGPointer_Type, "GPointer", G_TYPE_POINTER);
+    PyGPointer_Type.tp_alloc = PyType_GenericAlloc;
+    PyGPointer_Type.tp_new = PyType_GenericNew;
+    if (PyType_Ready(&PyGPointer_Type))
+        return -1;
+
+    pygtype = pyg_type_wrapper_new (G_TYPE_POINTER);
+    PyDict_SetItemString (PyGPointer_Type.tp_dict, "__gtype__", pygtype);
+    Py_DECREF (pygtype);
+
+    PyDict_SetItemString(d, "GPointer", (PyObject *)&PyGPointer_Type);
 
     return 0;
 }

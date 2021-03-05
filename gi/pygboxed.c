@@ -30,7 +30,7 @@
 
 GQuark pygboxed_type_key;
 
-PYGLIB_DEFINE_TYPE("gobject.GBoxed", PyGBoxed_Type, PyGBoxed);
+PYGI_DEFINE_TYPE("gobject.GBoxed", PyGBoxed_Type, PyGBoxed);
 
 static void
 gboxed_dealloc(PyGBoxed *self)
@@ -58,10 +58,10 @@ gboxed_richcompare(PyObject *self, PyObject *other, int op)
     }
 }
 
-static PYGLIB_Py_hash_t
+static Py_hash_t
 gboxed_hash(PyGBoxed *self)
 {
-    return PYGLIB_Py_hash_t_FromVoidPtr (pyg_boxed_get_ptr (self));
+    return (Py_hash_t)(gintptr)(pyg_boxed_get_ptr (self));
 }
 
 static PyObject *
@@ -74,12 +74,12 @@ gboxed_repr(PyGBoxed *boxed)
     if (module == NULL)
         return NULL;
 
-    if (!PYGLIB_PyUnicode_Check (module)) {
+    if (!PyUnicode_Check (module)) {
         Py_DECREF (module);
         return NULL;
     }
 
-    module_str = PYGLIB_PyUnicode_AsString (module);
+    module_str = PyUnicode_AsUTF8 (module);
     namespace = g_strrstr (module_str, ".");
     if (namespace == NULL) {
         namespace = module_str;
@@ -87,10 +87,10 @@ gboxed_repr(PyGBoxed *boxed)
         namespace += 1;
     }
 
-    repr = PYGLIB_PyUnicode_FromFormat ("<%s.%s object at %p (%s at %p)>",
-                                        namespace, Py_TYPE (self)->tp_name,
-                                        self, g_type_name (boxed->gtype),
-                                        pyg_boxed_get_ptr (boxed));
+    repr = PyUnicode_FromFormat ("<%s.%s object at %p (%s at %p)>",
+                                 namespace, Py_TYPE (self)->tp_name,
+                                 self, g_type_name (boxed->gtype),
+                                 pyg_boxed_get_ptr (boxed));
     Py_DECREF (module);
     return repr;
 }
@@ -244,6 +244,8 @@ pygi_gboxed_new (GType boxed_type, gpointer boxed, gboolean copy_boxed,
 int
 pygi_gboxed_register_types(PyObject *d)
 {
+    PyObject *pygtype;
+
     pygboxed_type_key        = g_quark_from_static_string("PyGBoxed::class");
 
     PyGBoxed_Type.tp_dealloc = (destructor)gboxed_dealloc;
@@ -254,8 +256,16 @@ pygi_gboxed_register_types(PyObject *d)
     PyGBoxed_Type.tp_init = (initproc)gboxed_init;
     PyGBoxed_Type.tp_free = (freefunc)gboxed_free;
     PyGBoxed_Type.tp_hash = (hashfunc)gboxed_hash;
-    
-    PYGOBJECT_REGISTER_GTYPE(d, PyGBoxed_Type, "GBoxed", G_TYPE_BOXED);
+    PyGBoxed_Type.tp_alloc = PyType_GenericAlloc;
+    PyGBoxed_Type.tp_new = PyType_GenericNew;
+    if (PyType_Ready(&PyGBoxed_Type))
+        return -1;
+
+    pygtype = pyg_type_wrapper_new (G_TYPE_POINTER);
+    PyDict_SetItemString (PyGBoxed_Type.tp_dict, "__gtype__", pygtype);
+    Py_DECREF (pygtype);
+
+    PyDict_SetItemString(d, "GBoxed", (PyObject *)&PyGBoxed_Type);
 
     return 0;
 }

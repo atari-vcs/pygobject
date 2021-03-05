@@ -23,7 +23,7 @@ Runtime dependencies:
     * glib
     * libgirepository (gobject-introspection)
     * libffi
-    * Python 2 or 3
+    * Python 3
 
     The overrides directory contains various files which includes various
     Python imports mentioning gtk, gdk etc. They are only used when the
@@ -40,6 +40,6 @@ Build dependencies:
 Test Suite dependencies:
 
     * The runtime dependencies
-    * GTK+ 3 (optional)
+    * GTK 3 (optional)
     * pango (optional)
     * pycairo (optional)

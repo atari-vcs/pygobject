@@ -23,7 +23,6 @@
 #include <Python.h>
 #include "pygi-error.h"
 #include "pygi-type.h"
-#include "pygi-python-compat.h"
 #include "pygi-util.h"
 #include "pygi-basictype.h"
 
@@ -36,8 +35,10 @@ PyObject *PyGError = NULL;
  *
  * Checks to see if @error has been set.  If @error has been set, then a
  * GLib.GError Python exception object is returned (but not raised).
+ * If not error is set returns Py_None.
  *
- * Returns: a GLib.GError Python exception object, or NULL.
+ * Returns: a GLib.GError Python exception object, or Py_None,
+ *     or NULL and sets an error if creating the exception object fails.
  */
 PyObject *
 pygi_error_marshal_to_py (GError **error)
@@ -50,7 +51,7 @@ pygi_error_marshal_to_py (GError **error)
     g_return_val_if_fail(error != NULL, NULL);
 
     if (*error == NULL)
-        return NULL;
+        Py_RETURN_NONE;
 
     state = PyGILState_Ensure();
 
@@ -93,8 +94,13 @@ pygi_error_check (GError **error)
     state = PyGILState_Ensure();
 
     exc_instance = pygi_error_marshal_to_py (error);
-    PyErr_SetObject(PyGError, exc_instance);
-    Py_DECREF(exc_instance);
+    if (exc_instance != NULL) {
+        PyErr_SetObject(PyGError, exc_instance);
+        Py_DECREF(exc_instance);
+    } else {
+        PyErr_Print ();
+        PyErr_SetString (PyExc_RuntimeError, "Converting the GError failed");
+    }
     g_clear_error(error);
 
     PyGILState_Release(state);
@@ -266,11 +272,7 @@ _pygi_marshal_to_py_gerror (PyGIInvokeState   *state,
         g_error_free (error);
     }
 
-    if (py_obj != NULL) {
-        return py_obj;
-    } else {
-        Py_RETURN_NONE;
-    }
+    return py_obj;
 }
 
 static gboolean
@@ -330,11 +332,7 @@ pygerror_from_gvalue (const GValue *value)
 {
     GError *gerror = (GError *) g_value_get_boxed (value);
     PyObject *pyerr = pygi_error_marshal_to_py (&gerror);
-    if (pyerr == NULL) {
-        Py_RETURN_NONE;
-    } else {
-        return pyerr;
-    }
+    return pyerr;
 }
 
 static int
@@ -356,7 +354,7 @@ pygerror_to_gvalue (GValue *value, PyObject *pyerror)
 int
 pygi_error_register_types (PyObject *module)
 {
-    PyObject *error_module = pygi_import_module ("gi._error");
+    PyObject *error_module = PyImport_ImportModule ("gi._error");
     if (!error_module) {
         return -1;
     }

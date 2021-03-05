@@ -52,7 +52,6 @@
 #include "pygi-property.h"
 #include "pygi-util.h"
 #include "gimodule.h"
-#include "pygi-python-compat.h"
 #include "pygi-basictype.h"
 
 PyObject *PyGIWarning;
@@ -442,7 +441,7 @@ pyg_param_spec_from_object (PyObject *tuple)
     }
 
     item = PyTuple_GetItem(tuple, val_length-1);
-    if (!PYGLIB_PyLong_Check(item)) {
+    if (!PyLong_Check (item)) {
 	PyErr_SetString(PyExc_TypeError,
 			"last element in tuple must be an int");
 	return NULL;
@@ -459,6 +458,8 @@ pyg_param_spec_from_object (PyObject *tuple)
 
     return pspec;
 }
+
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
 
 /**
  * pyg_parse_constructor_args: helper function for PyGObject constructors
@@ -514,6 +515,8 @@ pyg_parse_constructor_args(GType        obj_type,
     return TRUE;
 }
 
+G_GNUC_END_IGNORE_DEPRECATIONS
+
 /* Only for backwards compatibility */
 static int
 pygobject_enable_threads(void)
@@ -561,13 +564,13 @@ add_properties (GObjectClass *klass, PyObject *properties)
 
 	/* values are of format (type,nick,blurb, type_specific_args, flags) */
 
-	if (!PYGLIB_PyUnicode_Check(key)) {
+	if (!PyUnicode_Check(key)) {
 	    PyErr_SetString(PyExc_TypeError,
 			    "__gproperties__ keys must be strings");
 	    ret = FALSE;
 	    break;
 	}
-	prop_name = PYGLIB_PyUnicode_AsString (key);
+	prop_name = PyUnicode_AsUTF8 (key);
 
 	if (!PyTuple_Check(value)) {
 	    PyErr_SetString(PyExc_TypeError,
@@ -600,7 +603,7 @@ add_properties (GObjectClass *klass, PyObject *properties)
 	    break;
 	}
 	item = PyTuple_GetItem(value, val_length-1);
-	if (!PYGLIB_PyLong_Check(item)) {
+	if (!PyLong_Check (item)) {
 	    PyErr_SetString(PyExc_TypeError,
 		"last element in __gproperties__ value tuple must be an int");
 	    ret = FALSE;
@@ -623,14 +626,14 @@ add_properties (GObjectClass *klass, PyObject *properties)
             PyObject *type, *pvalue, *traceback;
 	    ret = FALSE;
             PyErr_Fetch(&type, &pvalue, &traceback);
-            if (PYGLIB_PyUnicode_Check(pvalue)) {
+            if (PyUnicode_Check(pvalue)) {
                 char msg[256];
                 g_snprintf(msg, 256,
 			   "%s (while registering property '%s' for GType '%s')",
-               PYGLIB_PyUnicode_AsString(pvalue),
+               PyUnicode_AsUTF8 (pvalue),
 			   prop_name, G_OBJECT_CLASS_NAME(klass));
                 Py_DECREF(pvalue);
-                value = PYGLIB_PyUnicode_FromString(msg);
+                value = PyUnicode_FromString (msg);
             }
             PyErr_Restore(type, pvalue, traceback);
 	    break;
@@ -678,7 +681,7 @@ _pyg_signal_accumulator(GSignalInvocationHint *ihint,
 
     state = PyGILState_Ensure();
     if (ihint->detail)
-        py_detail = PYGLIB_PyUnicode_FromString(g_quark_to_string(ihint->detail));
+        py_detail = PyUnicode_FromString (g_quark_to_string(ihint->detail));
     else {
         Py_INCREF(Py_None);
         py_detail = Py_None;
@@ -822,17 +825,17 @@ add_signals (GObjectClass *klass, PyObject *signals)
 	const gchar *signal_name;
         gchar *signal_name_canon, *c;
 
-	if (!PYGLIB_PyUnicode_Check(key)) {
+	if (!PyUnicode_Check(key)) {
 	    PyErr_SetString(PyExc_TypeError,
 			    "__gsignals__ keys must be strings");
 	    ret = FALSE;
 	    break;
 	}
-	signal_name = PYGLIB_PyUnicode_AsString (key);
+	signal_name = PyUnicode_AsUTF8 (key);
 
 	if (value == Py_None ||
-	    (PYGLIB_PyUnicode_Check(value) &&
-	     !strcmp(PYGLIB_PyUnicode_AsString(value), "override")))
+	    (PyUnicode_Check(value) &&
+	     !strcmp(PyUnicode_AsUTF8 (value), "override")))
         {
               /* canonicalize signal name, replacing '-' with '_' */
             signal_name_canon = g_strdup(signal_name);
@@ -1001,19 +1004,53 @@ pygobject_init_wrapper_get(void)
     return (PyObject *) g_private_get(&pygobject_construction_wrapper);
 }
 
+/**
+ * Like g_object_new_with_properties() but also works with older glib versions.
+ */
+GObject *
+pygobject_object_new_with_properties(GType object_type,
+                                     guint n_properties,
+                                     const char *names[],
+                                     const GValue values[])
+{
+    GObject *obj;
+
+#if GLIB_CHECK_VERSION(2, 54, 0)
+    obj = g_object_new_with_properties(object_type, n_properties, names, values);
+#else
+    {
+        GParameter *parameters;
+        uint i;
+
+        parameters = g_new(GParameter, n_properties);
+        for (i = 0; i < n_properties; i++) {
+            parameters[i].name = names[i];
+            parameters[i].value = values[i];
+        }
+        obj = g_object_newv(object_type, n_properties, parameters);
+        g_free(parameters);
+    }
+#endif
+
+    return obj;
+}
+
 int
-pygobject_constructv(PyGObject  *self,
-                     guint       n_parameters,
-                     GParameter *parameters)
+pygobject_constructv (PyGObject   *self,
+                      guint n_properties,
+                      const char *names[],
+                      const GValue values[])
 {
     GObject *obj;
 
     g_assert (self->obj == NULL);
     pygobject_init_wrapper_set((PyObject *) self);
-G_GNUC_BEGIN_IGNORE_DEPRECATIONS
-    obj = g_object_newv(pyg_type_from_object((PyObject *) self),
-                        n_parameters, parameters);
-G_GNUC_END_IGNORE_DEPRECATIONS
+
+    obj = pygobject_object_new_with_properties(pyg_type_from_object((PyObject *) self),
+                                               n_properties,
+                                               names,
+                                               values);
+
     if (g_object_is_floating (obj))
         self->private_flags.flags |= PYGOBJECT_GOBJECT_WAS_FLOATING;
     pygobject_sink (obj);
@@ -1032,6 +1069,7 @@ pygobject__g_instance_init(GTypeInstance   *instance,
     GObject *object = (GObject *) instance;
     PyObject *wrapper, *result;
     PyGILState_STATE state;
+    gboolean needs_init = FALSE;
 
     wrapper = g_object_get_qdata(object, pygobject_wrapper_key);
     if (wrapper == NULL) {
@@ -1058,16 +1096,20 @@ pygobject__g_instance_init(GTypeInstance   *instance,
          * will take the ref */
         pygobject_ref_float ((PyGObject *) wrapper);
 
-        result = PyObject_CallMethod (wrapper, "__init__", NULL);
+        needs_init = TRUE;
+    }
+
+    /* XXX: used for Gtk.Template */
+    if (PyObject_HasAttrString ((PyObject*) Py_TYPE (wrapper), "__dontuse_ginstance_init__")) {
+        result = PyObject_CallMethod (wrapper, "__dontuse_ginstance_init__", NULL);
         if (result == NULL)
             PyErr_Print ();
         else
             Py_DECREF (result);
     }
 
-    /* XXX: used for Gtk.Template */
-    if (PyObject_HasAttrString ((PyObject*) Py_TYPE (wrapper), "__dontuse_ginstance_init__")) {
-        result = PyObject_CallMethod (wrapper, "__dontuse_ginstance_init__", NULL);
+    if (needs_init) {
+        result = PyObject_CallMethod (wrapper, "__init__", NULL);
         if (result == NULL)
             PyErr_Print ();
         else
@@ -1177,8 +1219,8 @@ get_type_name_for_class(PyTypeObject *class)
 	g_free(type_name);
 	g_snprintf(name_serial_str, 16, "-v%i", name_serial);
 	module = PyObject_GetAttrString((PyObject *)class, "__module__");
-	if (module && PYGLIB_PyUnicode_Check(module)) {
-	    type_name = g_strconcat(PYGLIB_PyUnicode_AsString(module), ".",
+	if (module && PyUnicode_Check (module)) {
+	    type_name = g_strconcat(PyUnicode_AsUTF8 (module), ".",
 				    class->tp_name,
 				    name_serial > 1 ? name_serial_str : NULL,
 				    NULL);
@@ -1708,11 +1750,11 @@ find_vfunc_info (GIBaseInfo *vfunc_info,
                  GIFieldInfo **field_info_ret)
 {
     GType ancestor_g_type = 0;
-    int length, i;
     GIBaseInfo *ancestor_info;
     GIStructInfo *struct_info;
     gpointer implementor_class = NULL;
     gboolean is_interface = FALSE;
+    GIFieldInfo *field_info;
 
     ancestor_info = g_base_info_get_container (vfunc_info);
     is_interface = g_base_info_get_type (ancestor_info) == GI_INFO_TYPE_INTERFACE;
@@ -1743,28 +1785,18 @@ find_vfunc_info (GIBaseInfo *vfunc_info,
 
     *implementor_class_ret = implementor_class;
 
-    length = g_struct_info_get_n_fields (struct_info);
-    for (i = 0; i < length; i++) {
-        GIFieldInfo *field_info;
+    field_info = g_struct_info_find_field (struct_info,
+                                           g_base_info_get_name ( (GIBaseInfo*) vfunc_info));
+    if (field_info != NULL) {
         GITypeInfo *type_info;
-
-        field_info = g_struct_info_get_field (struct_info, i);
-
-        if (strcmp (g_base_info_get_name ( (GIBaseInfo*) field_info),
-                    g_base_info_get_name ( (GIBaseInfo*) vfunc_info)) != 0) {
-            g_base_info_unref (field_info);
-            continue;
-        }
 
         type_info = g_field_info_get_type (field_info);
         if (g_type_info_get_tag (type_info) == GI_TYPE_TAG_INTERFACE) {
-            g_base_info_unref (type_info);
             *field_info_ret = field_info;
-            break;
+        } else {
+            g_base_info_unref (field_info);
         }
-
         g_base_info_unref (type_info);
-        g_base_info_unref (field_info);
     }
 
     g_base_info_unref (struct_info);
@@ -1904,9 +1936,9 @@ pyg_channel_read(PyObject* self, PyObject *args, PyObject *kwargs)
         PyErr_SetString(PyExc_TypeError, "first argument is not a GLib.IOChannel");
         return NULL;
     }
-	
+
     if (max_count == 0)
-        return PYGLIB_PyBytes_FromString("");
+        return PyBytes_FromString ("");
 
     iochannel = pyg_boxed_get (py_iochannel, GIOChannel);
 
@@ -1915,26 +1947,26 @@ pyg_channel_read(PyObject* self, PyObject *args, PyObject *kwargs)
 	gsize single_read;
 	char* buf;
 	gsize buf_size;
-	
-	if (max_count == -1) 
+
+	if (max_count == -1)
 	    buf_size = CHUNK_SIZE;
 	else {
 	    buf_size = max_count - total_read;
 	    if (buf_size > CHUNK_SIZE)
 		buf_size = CHUNK_SIZE;
         }
-	
+
 	if ( ret_obj == NULL ) {
-	    ret_obj = PYGLIB_PyBytes_FromStringAndSize((char *)NULL, buf_size);
+	    ret_obj = PyBytes_FromStringAndSize ((char *)NULL, buf_size);
 	    if (ret_obj == NULL)
 		goto failure;
 	}
-	else if (buf_size + total_read > (gsize)PYGLIB_PyBytes_Size(ret_obj)) {
-	    if (PYGLIB_PyBytes_Resize(&ret_obj, buf_size + total_read) == -1)
+	else if (buf_size + total_read > (gsize)PyBytes_Size (ret_obj)) {
+	    if (_PyBytes_Resize (&ret_obj, buf_size + total_read) == -1)
 		goto failure;
 	}
-       
-        buf = PYGLIB_PyBytes_AsString(ret_obj) + total_read;
+
+        buf = PyBytes_AsString (ret_obj) + total_read;
 
         Py_BEGIN_ALLOW_THREADS;
         status = g_io_channel_read_chars (iochannel, buf, buf_size, &single_read, &error);
@@ -1942,12 +1974,12 @@ pyg_channel_read(PyObject* self, PyObject *args, PyObject *kwargs)
 
         if (pygi_error_check (&error))
 	    goto failure;
-	
+
 	total_read += single_read;
     }
-	
-    if ( total_read != (gsize)PYGLIB_PyBytes_Size(ret_obj) ) {
-	if (PYGLIB_PyBytes_Resize(&ret_obj, total_read) == -1)
+
+    if ( total_read != (gsize)PyBytes_Size (ret_obj) ) {
+	if (_PyBytes_Resize (&ret_obj, total_read) == -1)
 	    goto failure;
     }
 
@@ -2061,7 +2093,7 @@ pyg_add_emission_hook(PyGObject *self, PyObject *args)
     if (!g_signal_parse_name(name, gtype, &sigid, &detail, TRUE)) {
 	repr = PyObject_Repr((PyObject*)self);
 	PyErr_Format(PyExc_TypeError, "%s: unknown signal name: %s",
-			PYGLIB_PyUnicode_AsString(repr),
+			PyUnicode_AsUTF8 (repr),
 		     name);
 	Py_DECREF(repr);
 	return NULL;
@@ -2301,6 +2333,8 @@ static PyMethodDef _gi_functions[] = {
       (PyCFunction)pyg__install_metaclass, METH_O },
     { "_gvalue_get",
       (PyCFunction)pyg__gvalue_get, METH_O },
+    { "_gvalue_get_type",
+      (PyCFunction)pyg__gvalue_get_type, METH_O },
     { "_gvalue_set",
       (PyCFunction)pyg__gvalue_set, METH_VARARGS },
     { NULL, NULL, 0 }
@@ -2462,9 +2496,30 @@ pygi_register_version_tuples(PyObject *d)
     return 0;
 }
 
-PYGLIB_MODULE_START(_gi, "_gi")
-{
+static struct PyModuleDef __gimodule = {
+    PyModuleDef_HEAD_INIT,
+    "_gi",
+    NULL,
+    -1,
+    _gi_functions,
+    NULL,
+    NULL,
+    NULL,
+    NULL
+};
+
+#ifdef __GNUC__
+#define PYGI_MODINIT_FUNC __attribute__((visibility("default"))) PyMODINIT_FUNC
+#else
+#define PYGI_MODINIT_FUNC PyMODINIT_FUNC
+#endif
+
+PYGI_MODINIT_FUNC PyInit__gi(void);
+
+PYGI_MODINIT_FUNC PyInit__gi(void) {
+    PyObject *module;
     PyObject *api;
+    module = PyModule_Create(&__gimodule);
     PyObject *module_dict = PyModule_GetDict (module);
 
     /* Always enable Python threads since we cannot predict which GI repositories
@@ -2477,70 +2532,60 @@ PYGLIB_MODULE_START(_gi, "_gi")
     PyModule_AddStringConstant(module, "__package__", "gi._gi");
 
     if (pygi_foreign_init () < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_error_register_types (module) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_repository_register_types (module) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_info_register_types (module) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_type_register_types (module_dict) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_pointer_register_types (module_dict) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_struct_register_types (module) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_gboxed_register_types (module_dict) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_boxed_register_types (module) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_ccallback_register_types (module) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_resulttuple_register_types (module) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
 
     if (pygi_spawn_register_types (module_dict) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_option_context_register_types (module_dict) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_option_group_register_types (module_dict) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
 
     if (pygi_register_api (module_dict) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_register_constants (module) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_register_version_tuples (module_dict) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_register_warnings (module_dict) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pyi_object_register_types (module_dict) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_interface_register_types (module_dict) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_paramspec_register_types (module_dict) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_enum_register_types (module_dict) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     if (pygi_flags_register_types (module_dict) < 0)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
 
     PyGIWarning = PyErr_NewException ("gi.PyGIWarning", PyExc_Warning, NULL);
     if (PyGIWarning == NULL)
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
 
-    /* Use RuntimeWarning as the base class of PyGIDeprecationWarning
-     * for unstable (odd minor version) and use DeprecationWarning for
-     * stable (even minor version). This is so PyGObject deprecations
-     * behave the same as regular Python deprecations in stable releases.
-     */
-#if PYGOBJECT_MINOR_VERSION % 2
-    PyGIDeprecationWarning = PyErr_NewException("gi.PyGIDeprecationWarning",
-                                                PyExc_RuntimeWarning, NULL);
-#else
     PyGIDeprecationWarning = PyErr_NewException("gi.PyGIDeprecationWarning",
                                                 PyExc_DeprecationWarning, NULL);
-#endif
 
     /* Place holder object used to fill in "from Python" argument lists
      * for values not supplied by the caller but support a GI default.
@@ -2555,8 +2600,9 @@ PYGLIB_MODULE_START(_gi, "_gi")
 
     api = PyCapsule_New ( (void *) &CAPI, "gi._API", NULL);
     if (api == NULL) {
-        return PYGLIB_MODULE_ERROR_RETURN;
+        return NULL;
     }
     PyModule_AddObject (module, "_API", api);
+
+    return module;
 }
-PYGLIB_MODULE_END
