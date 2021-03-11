@@ -34,10 +34,10 @@ a well behaved PyGTK application mostly unmodified on top of PyGI.
 
 import sys
 import warnings
+from collections import UserList
 
 import gi
 from gi.repository import GObject
-from gi import _compat
 
 
 _patches = []
@@ -149,10 +149,6 @@ def _disable_all():
             sys.modules[name] = old_value
     del _module_patches[:]
 
-    _compat.reload(sys)
-    if _compat.PY2:
-        sys.setdefaultencoding('ascii')
-
 
 def enable_gtk(version='3.0'):
     if _check_enabled("gtk", version):
@@ -160,11 +156,6 @@ def enable_gtk(version='3.0'):
 
     if version == "4.0":
         raise ValueError("version 4.0 not supported")
-
-    # set the default encoding like PyGTK
-    _compat.reload(sys)
-    if _compat.PY2:
-        sys.setdefaultencoding('utf-8')
 
     # atk
     gi.require_version('Atk', '1.0')
@@ -199,10 +190,7 @@ def enable_gtk(version='3.0'):
     _patch(Gdk, "PixbufLoader", GdkPixbuf.PixbufLoader.new_with_type)
     _patch(Gdk, "pixbuf_new_from_data", GdkPixbuf.Pixbuf.new_from_data)
     _patch(Gdk, "pixbuf_new_from_file", GdkPixbuf.Pixbuf.new_from_file)
-    try:
-        _patch(Gdk, "pixbuf_new_from_file_at_scale", GdkPixbuf.Pixbuf.new_from_file_at_scale)
-    except AttributeError:
-        pass
+    _patch(Gdk, "pixbuf_new_from_file_at_scale", GdkPixbuf.Pixbuf.new_from_file_at_scale)
     _patch(Gdk, "pixbuf_new_from_file_at_size", GdkPixbuf.Pixbuf.new_from_file_at_size)
     _patch(Gdk, "pixbuf_new_from_inline", GdkPixbuf.Pixbuf.new_from_inline)
     _patch(Gdk, "pixbuf_new_from_stream", GdkPixbuf.Pixbuf.new_from_stream)
@@ -229,20 +217,6 @@ def enable_gtk(version='3.0'):
         return result
 
     _patch(Gdk, "pixbuf_get_formats", get_formats)
-
-    orig_get_frame_extents = Gdk.Window.get_frame_extents
-
-    def get_frame_extents(window):
-        try:
-            try:
-                rect = Gdk.Rectangle(0, 0, 0, 0)
-            except TypeError:
-                rect = Gdk.Rectangle()
-            orig_get_frame_extents(window, rect)
-        except TypeError:
-            rect = orig_get_frame_extents(window)
-        return rect
-    _patch(Gdk.Window, "get_frame_extents", get_frame_extents)
 
     orig_get_origin = Gdk.Window.get_origin
 
@@ -412,10 +386,7 @@ def enable_gtk(version='3.0'):
     _patch(Gtk, "image_new_from_file", Gtk.Image.new_from_file)
     _patch(Gtk, "settings_get_default", Gtk.Settings.get_default)
     _patch(Gtk, "window_set_default_icon", Gtk.Window.set_default_icon)
-    try:
-        _patch(Gtk, "clipboard_get", Gtk.Clipboard.get)
-    except AttributeError:
-        pass
+    _patch(Gtk, "clipboard_get", Gtk.Clipboard.get)
 
     # AccelGroup
     _patch(Gtk.AccelGroup, "connect_group", Gtk.AccelGroup.connect)
@@ -449,11 +420,11 @@ def enable_gtk(version='3.0'):
     orig_size_request = Gtk.Widget.size_request
 
     def size_request(widget):
-        class SizeRequest(_compat.UserList):
+        class SizeRequest(UserList):
             def __init__(self, req):
                 self.height = req.height
                 self.width = req.width
-                _compat.UserList.__init__(self, [self.width, self.height])
+                UserList.__init__(self, [self.width, self.height])
         return SizeRequest(orig_size_request(widget))
     _patch(Gtk.Widget, "size_request", size_request)
     _patch(Gtk.Widget, "hide_all", Gtk.Widget.hide)

@@ -29,9 +29,9 @@
     :end-before: ----
 
 If you want to write a Python application for `GNOME
-<https://www.gnome.org/>`__ or a Python GUI application using GTK+, then
+<https://www.gnome.org/>`__ or a Python GUI application using GTK, then
 PyGObject is the way to go. For more information on specific libraries check
-out the "`Python GTK+ 3 Tutorial
+out the "`Python GTK 3 Tutorial
 <https://python-gtk-3-tutorial.readthedocs.io>`__" and the "`Python GI API
 Reference <https://lazka.github.io/pgi-docs>`__".
 
@@ -69,10 +69,12 @@ Who Is Using PyGObject?
 
 * `Anaconda <https://fedoraproject.org/wiki/Anaconda>`__ - an installation program used by Fedora, RHEL and others
 * `D-Feet <https://wiki.gnome.org/action/show/Apps/DFeet>`__ - an easy to use D-Bus debugger
+* `Gaphor <https://gaphor.org/>`__ - a simple modeling tool
+* `Girens <https://gitlab.gnome.org/tijder/girens>`__ - a Plex client for playing movies, TV shows and music from your Plex library
 * `GNOME Music <https://wiki.gnome.org/Apps/Music>`__ - a music player for GNOME
 * `GNOME Tweak Tool <https://wiki.gnome.org/action/show/Apps/GnomeTweakTool>`__ - a tool to customize advanced GNOME 3 options
 * `Gramps <https://gramps-project.org/>`__ - a genealogy program
-* `Lollypop <https://gnumdk.github.io/lollypop-web/>`__ - a modern music player
+* `Lollypop <https://wiki.gnome.org/Apps/Lollypop>`__ - a modern music player
 * `Meld <http://meldmerge.org/>`__ - a visual diff and merge tool
 * `MyPaint <http://mypaint.org/>`__ - a nimble, distraction-free, and easy tool for digital painters
 * `Orca <https://wiki.gnome.org/Projects/Orca>`__ - a flexible and extensible screen reader

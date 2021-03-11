@@ -21,16 +21,14 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301
 # USA
 
+import functools
 import warnings
 from collections import namedtuple
 
-import gi.overrides
 import gi.module
 from gi.overrides import override, deprecated_attr
 from gi.repository import GLib
 from gi import PyGIDeprecationWarning
-from gi._compat import PY2, text_type
-
 from gi import _propertyhelper as propertyhelper
 from gi import _signalhelper as signalhelper
 from gi import _gi
@@ -159,19 +157,11 @@ for name in ['PARAM_CONSTRUCT', 'PARAM_CONSTRUCT_ONLY', 'PARAM_LAX_VALIDATION',
     __all__.append(name)
 
 # PARAM_READWRITE should come from the gi module but cannot due to:
-# https://bugzilla.gnome.org/show_bug.cgi?id=687615
+# https://gitlab.gnome.org/GNOME/gobject-introspection/issues/75
 PARAM_READWRITE = GObjectModule.ParamFlags.READABLE | \
     GObjectModule.ParamFlags.WRITABLE
+deprecated_attr("GObject", "PARAM_READWRITE", "GObject.ParamFlags.READWRITE")
 __all__.append("PARAM_READWRITE")
-
-# READWRITE is part of ParamFlags since glib 2.42. Only mark PARAM_READWRITE as
-# deprecated in case ParamFlags.READWRITE is available. Also include the glib
-# version in the warning so it's clear that this needs a newer glib, unlike
-# the other ParamFlags related deprecations.
-# https://bugzilla.gnome.org/show_bug.cgi?id=726037
-if hasattr(GObjectModule.ParamFlags, "READWRITE"):
-    deprecated_attr("GObject", "PARAM_READWRITE",
-                    "GObject.ParamFlags.READWRITE (glib 2.42+)")
 
 
 # Deprecated, use: GObject.SignalFlags.* directly
@@ -217,146 +207,90 @@ class Value(GObjectModule.Value):
             if py_value is not None:
                 self.set_value(py_value)
 
-    def __del__(self):
-        if self._is_valid:
-            if self._free_on_dealloc and self.g_type != TYPE_INVALID:
-                self.unset()
-
-        # We must call base class __del__() after unset.
-        super(Value, self).__del__()
+    @property
+    def __g_type(self):
+        # XXX: This is the same as self.g_type, but the field marshalling
+        # code is currently very slow.
+        return _gi._gvalue_get_type(self)
 
     def set_boxed(self, boxed):
+        if not self.__g_type.is_a(TYPE_BOXED):
+            warnings.warn('Calling set_boxed() on a non-boxed type deprecated',
+                          PyGIDeprecationWarning, stacklevel=2)
         # Workaround the introspection marshalers inability to know
         # these methods should be marshaling boxed types. This is because
         # the type information is stored on the GValue.
         _gi._gvalue_set(self, boxed)
 
     def get_boxed(self):
+        if not self.__g_type.is_a(TYPE_BOXED):
+            warnings.warn('Calling get_boxed() on a non-boxed type deprecated',
+                          PyGIDeprecationWarning, stacklevel=2)
         return _gi._gvalue_get(self)
 
     def set_value(self, py_value):
-        gtype = self.g_type
+        gtype = self.__g_type
 
-        if gtype == _gi.TYPE_INVALID:
-            raise TypeError("GObject.Value needs to be initialized first")
-        elif gtype == TYPE_BOOLEAN:
-            self.set_boolean(py_value)
-        elif gtype == TYPE_CHAR:
+        if gtype == TYPE_CHAR:
             self.set_char(py_value)
         elif gtype == TYPE_UCHAR:
             self.set_uchar(py_value)
-        elif gtype == TYPE_INT:
-            self.set_int(py_value)
-        elif gtype == TYPE_UINT:
-            self.set_uint(py_value)
-        elif gtype == TYPE_LONG:
-            self.set_long(py_value)
-        elif gtype == TYPE_ULONG:
-            self.set_ulong(py_value)
-        elif gtype == TYPE_INT64:
-            self.set_int64(py_value)
-        elif gtype == TYPE_UINT64:
-            self.set_uint64(py_value)
-        elif gtype == TYPE_FLOAT:
-            self.set_float(py_value)
-        elif gtype == TYPE_DOUBLE:
-            self.set_double(py_value)
         elif gtype == TYPE_STRING:
-            if isinstance(py_value, str):
-                py_value = str(py_value)
-            elif PY2:
-                if isinstance(py_value, text_type):
-                    py_value = py_value.encode('UTF-8')
-                else:
-                    raise ValueError("Expected string or unicode but got %s%s" %
-                                     (py_value, type(py_value)))
-            else:
-                raise ValueError("Expected string but got %s%s" %
-                                 (py_value, type(py_value)))
-            self.set_string(py_value)
+            if not isinstance(py_value, str) and py_value is not None:
+                raise TypeError("Expected string but got %s%s" %
+                                (py_value, type(py_value)))
+            _gi._gvalue_set(self, py_value)
         elif gtype == TYPE_PARAM:
             self.set_param(py_value)
-        elif gtype.is_a(TYPE_ENUM):
-            self.set_enum(py_value)
         elif gtype.is_a(TYPE_FLAGS):
             self.set_flags(py_value)
-        elif gtype.is_a(TYPE_BOXED):
-            self.set_boxed(py_value)
         elif gtype == TYPE_POINTER:
             self.set_pointer(py_value)
-        elif gtype.is_a(TYPE_OBJECT):
-            self.set_object(py_value)
-        elif gtype == TYPE_UNICHAR:
-            self.set_uint(int(py_value))
-        # elif gtype == TYPE_OVERRIDE:
-        #     pass
         elif gtype == TYPE_GTYPE:
             self.set_gtype(py_value)
         elif gtype == TYPE_VARIANT:
             self.set_variant(py_value)
-        elif gtype == TYPE_PYOBJECT:
-            self.set_boxed(py_value)
         else:
             # Fall back to _gvalue_set which handles some more cases
             # like fundamentals for which a converter is registered
-            _gi._gvalue_set(self, py_value)
+            try:
+                _gi._gvalue_set(self, py_value)
+            except TypeError:
+                if gtype == TYPE_INVALID:
+                    raise TypeError("GObject.Value needs to be initialized first")
+                raise
 
     def get_value(self):
-        gtype = self.g_type
+        gtype = self.__g_type
 
-        if gtype == TYPE_BOOLEAN:
-            return self.get_boolean()
-        elif gtype == TYPE_CHAR:
+        if gtype == TYPE_CHAR:
             return self.get_char()
         elif gtype == TYPE_UCHAR:
             return self.get_uchar()
-        elif gtype == TYPE_INT:
-            return self.get_int()
-        elif gtype == TYPE_UINT:
-            return self.get_uint()
-        elif gtype == TYPE_LONG:
-            return self.get_long()
-        elif gtype == TYPE_ULONG:
-            return self.get_ulong()
-        elif gtype == TYPE_INT64:
-            return self.get_int64()
-        elif gtype == TYPE_UINT64:
-            return self.get_uint64()
-        elif gtype == TYPE_FLOAT:
-            return self.get_float()
-        elif gtype == TYPE_DOUBLE:
-            return self.get_double()
-        elif gtype == TYPE_STRING:
-            return self.get_string()
         elif gtype == TYPE_PARAM:
             return self.get_param()
         elif gtype.is_a(TYPE_ENUM):
             return self.get_enum()
         elif gtype.is_a(TYPE_FLAGS):
             return self.get_flags()
-        elif gtype.is_a(TYPE_BOXED):
-            return self.get_boxed()
         elif gtype == TYPE_POINTER:
             return self.get_pointer()
-        elif gtype.is_a(TYPE_OBJECT):
-            return self.get_object()
-        elif gtype == TYPE_UNICHAR:
-            return self.get_uint()
         elif gtype == TYPE_GTYPE:
             return self.get_gtype()
         elif gtype == TYPE_VARIANT:
             # get_variant was missing annotations
             # https://gitlab.gnome.org/GNOME/glib/merge_requests/492
             return self.dup_variant()
-        elif gtype == TYPE_PYOBJECT:
-            return self.get_boxed()
-        elif gtype == _gi.TYPE_INVALID:
-            return None
         else:
-            return _gi._gvalue_get(self)
+            try:
+                return _gi._gvalue_get(self)
+            except TypeError:
+                if gtype == TYPE_INVALID:
+                    return None
+                raise
 
     def __repr__(self):
-        return '<Value (%s) %s>' % (self.g_type.name, self.get_value())
+        return '<Value (%s) %s>' % (self.__g_type.name, self.get_value())
 
 
 Value = override(Value)
@@ -429,8 +363,7 @@ def signal_query(id_or_name, type_=None):
         id_or_name = signal_lookup(id_or_name, type_)
 
     res = GObjectModule.signal_query(id_or_name)
-    if res is None:
-        return None
+    assert res is not None
 
     if res.signal_id == 0:
         return None
@@ -555,7 +488,7 @@ def _signalmethod(func):
     # Function wrapper for signal functions used as instance methods.
     # This is needed when the signal functions come directly from GI.
     # (they are not already wrapped)
-    @gi.overrides.wraps(func)
+    @functools.wraps(func)
     def meth(*args, **kwargs):
         return func(*args, **kwargs)
     return meth

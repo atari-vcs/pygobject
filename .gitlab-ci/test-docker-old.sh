@@ -2,16 +2,21 @@
 
 set -e
 
-python --version
-virtualenv --python=python _venv
+python3 --version
+python3 -m venv _venv
 source _venv/bin/activate
 
 # ccache setup
-mkdir -p _ccache
 export CCACHE_BASEDIR="$(pwd)"
 export CCACHE_DIR="${CCACHE_BASEDIR}/_ccache"
+COV_DIR="$(pwd)/coverage"
+COV_KEY="${CI_JOB_NAME}"
+export COVERAGE_FILE="${COV_DIR}/.coverage.${COV_KEY}"
+mkdir -p "${COV_DIR}"
+mkdir -p "${CCACHE_DIR}"
 
 # test
-python -m pip install git+https://github.com/pygobject/pycairo.git
-python -m pip install pytest pytest-faulthandler
-xvfb-run -a python setup.py test
+python -m pip install --upgrade pip
+python -m pip install pycairo pytest pytest-faulthandler coverage
+python setup.py build_tests
+xvfb-run -a python -m coverage run --context "${COV_KEY}" tests/runtests.py

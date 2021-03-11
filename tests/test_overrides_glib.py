@@ -1,14 +1,121 @@
 # -*- Mode: Python; py-indent-offset: 4 -*-
 # vim: tabstop=4 shiftwidth=4 expandtab
 
-from __future__ import absolute_import
-
+import os
 import gc
 import unittest
+import tempfile
+import socket
+
+import pytest
 
 import gi
 from gi.repository import GLib
-from gi._compat import long_, integer_types
+
+from .helper import capture_gi_deprecation_warnings
+
+
+def test_io_add_watch_get_args():
+    get_args = GLib._io_add_watch_get_args
+    func = lambda: None
+
+    # create a closed channel for testing
+    fd, fn = tempfile.mkstemp()
+    os.close(fd)
+    try:
+        chan = GLib.IOChannel(filename=fn)
+        chan.shutdown(True)
+    finally:
+        os.remove(fn)
+
+    # old way
+    with capture_gi_deprecation_warnings():
+        assert get_args(chan, GLib.IOCondition.IN, func) == (
+            chan, 0, GLib.IOCondition.IN, func, tuple())
+
+        with pytest.raises(TypeError):
+            get_args(chan, GLib.IOCondition.IN, object())
+
+    # new way
+    prio = GLib.PRIORITY_DEFAULT
+    with capture_gi_deprecation_warnings():
+        assert get_args(chan, prio, GLib.IOCondition.IN, func, 99) == \
+            (chan, prio, GLib.IOCondition.IN, func, (99,))
+
+        with pytest.raises(TypeError):
+            assert get_args(chan, prio, GLib.IOCondition.IN)
+
+        with pytest.raises(TypeError):
+            assert get_args(chan, prio, 99)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="windows only")
+def test_io_add_watch_get_args_win32_socket():
+    get_args = GLib._io_add_watch_get_args
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    func = lambda: None
+    prio = GLib.PRIORITY_DEFAULT
+    chan = get_args(s, prio, GLib.IOCondition.IN, func)[0]
+    assert isinstance(chan, GLib.IOChannel)
+    chan.shutdown(False)
+
+
+def test_threads_init():
+    with capture_gi_deprecation_warnings() as w:
+        GLib.threads_init()
+    assert len(w)
+
+
+def test_gerror_matches():
+    e = GLib.Error(domain=42, code=24)
+    assert e.matches(42, 24)
+
+
+def test_timeout_add_seconds():
+    h = GLib.timeout_add_seconds(
+        100, lambda *x: None, 1, 2, 3, priority=GLib.PRIORITY_HIGH_IDLE)
+    GLib.source_remove(h)
+
+
+def test_iochannel():
+    with pytest.raises(TypeError):
+        GLib.IOChannel()
+
+
+def test_iochannel_write():
+    fd, fn = tempfile.mkstemp()
+    os.close(fd)
+    chan = GLib.IOChannel(filename=fn, mode="r+")
+    try:
+        assert chan.write(b"foo", 2) == 2
+        chan.seek(0)
+        assert chan.read() == b"fo"
+    finally:
+        chan.shutdown(True)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="unix only")
+def test_has_unix_signal_add():
+    with capture_gi_deprecation_warnings():
+        GLib.unix_signal_add == GLib.unix_signal_add_full
+
+
+@pytest.mark.skipif(os.name != "nt", reason="windows only")
+def test_iochannel_win32():
+    fd, fn = tempfile.mkstemp()
+    closed = False
+    try:
+        channel = GLib.IOChannel(hwnd=fd)
+        try:
+            assert channel.read() == b""
+        finally:
+            closed = True
+            channel.shutdown(True)
+    finally:
+        if not closed:
+            os.close(fd)
+        os.remove(fn)
 
 
 class TestGVariant(unittest.TestCase):
@@ -24,6 +131,17 @@ class TestGVariant(unittest.TestCase):
         variant = GLib.Variant('s', 'hello')
         self.assertTrue(isinstance(variant, GLib.Variant))
         self.assertEqual(variant.get_string(), 'hello')
+
+    def test_simple_invalid_ops(self):
+        variant = GLib.Variant('i', 42)
+        with pytest.raises(TypeError):
+            len(variant)
+
+        with pytest.raises(TypeError):
+            variant[0]
+
+        with pytest.raises(TypeError):
+            variant.keys()
 
     def test_create_variant(self):
         variant = GLib.Variant('v', GLib.Variant('i', 42))
@@ -62,7 +180,7 @@ class TestGVariant(unittest.TestCase):
         # nested tuples
         variant = GLib.Variant('((si)(ub))', (('hello', -1), (42, True)))
         self.assertEqual(variant.get_type_string(), '((si)(ub))')
-        self.assertEqual(variant.unpack(), (('hello', -1), (long_(42), True)))
+        self.assertEqual(variant.unpack(), (('hello', -1), (42, True)))
 
     def test_new_tuple_sink(self):
         # https://bugzilla.gnome.org/show_bug.cgi?id=735166
@@ -96,6 +214,15 @@ class TestGVariant(unittest.TestCase):
         self.assertEqual(variant.get_type_string(), 'a{sa{si}}')
         self.assertTrue(isinstance(variant, GLib.Variant))
         self.assertEqual(variant.unpack(), d)
+
+        # init with an iterable
+        variant = GLib.Variant('a{si}', [("foo", 2)])
+        assert variant.unpack() == {'foo': 2}
+
+        with pytest.raises(TypeError):
+            GLib.Variant('a{si}', [("foo",)])
+        with pytest.raises(TypeError):
+            GLib.Variant('a{si}', [("foo", 1, 2)])
 
     def test_create_array(self):
         variant = GLib.Variant('ai', [])
@@ -471,6 +598,9 @@ class TestGVariant(unittest.TestCase):
         assert_equal('v', GLib.Variant('i', 42))
         assert_not_equal('v', GLib.Variant('i', 42), 'v', GLib.Variant('i', 43))
 
+        assert GLib.Variant('i', 42) != object()
+        assert not GLib.Variant('i', 42) == object()
+
     def test_bool(self):
         # Check if the GVariant bool matches the unpacked Pythonic bool
 
@@ -526,6 +656,11 @@ class TestGVariant(unittest.TestCase):
         # variant types, recursive unpacking
         assert_equals_bool('v', GLib.Variant('i', 0))
         assert_equals_bool('v', GLib.Variant('i', 1))
+
+        # maybe types
+        assert_equals_bool('mi', 42)
+        assert_equals_bool('mi', 0)
+        assert_equals_bool('mi', None)
 
     def test_repr(self):
         # with C constructor
@@ -586,4 +721,4 @@ class TestConstants(unittest.TestCase):
 
     def test_basic_types_limits(self):
         self.assertTrue(isinstance(GLib.MINFLOAT, float))
-        self.assertTrue(isinstance(GLib.MAXLONG, integer_types))
+        self.assertTrue(isinstance(GLib.MAXLONG, int))

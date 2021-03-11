@@ -26,15 +26,6 @@
 #include <girepository.h>
 #include "pygobject-internal.h"
 
-#define PYGOBJECT_REGISTER_GTYPE(d, type, name, gtype)      \
-  {                                                         \
-    PyObject *o;					    \
-    PYGLIB_REGISTER_TYPE(d, type, name);                    \
-    PyDict_SetItemString(type.tp_dict, "__gtype__",         \
-			 o=pyg_type_wrapper_new(gtype));    \
-    Py_DECREF(o);                                           \
-}
-
 extern PyTypeObject PyGTypeWrapper_Type;
 
 typedef PyObject *(* fromvaluefunc)(const GValue *value);

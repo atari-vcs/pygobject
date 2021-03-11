@@ -153,6 +153,23 @@ class _VariantCreator(object):
         return builder.end()
 
 
+LEAF_ACCESSORS = {
+    'b': 'get_boolean',
+    'y': 'get_byte',
+    'n': 'get_int16',
+    'q': 'get_uint16',
+    'i': 'get_int32',
+    'u': 'get_uint32',
+    'x': 'get_int64',
+    't': 'get_uint64',
+    'h': 'get_handle',
+    'd': 'get_double',
+    's': 'get_string',
+    'o': 'get_string',  # object path
+    'g': 'get_string',  # signature
+}
+
+
 class Variant(GLib.Variant):
     def __new__(cls, format_string, value):
         """Create a GVariant from a native Python object.
@@ -220,35 +237,20 @@ class Variant(GLib.Variant):
     def unpack(self):
         """Decompose a GVariant into a native Python object."""
 
-        LEAF_ACCESSORS = {
-            'b': self.get_boolean,
-            'y': self.get_byte,
-            'n': self.get_int16,
-            'q': self.get_uint16,
-            'i': self.get_int32,
-            'u': self.get_uint32,
-            'x': self.get_int64,
-            't': self.get_uint64,
-            'h': self.get_handle,
-            'd': self.get_double,
-            's': self.get_string,
-            'o': self.get_string,  # object path
-            'g': self.get_string,  # signature
-        }
+        type_string = self.get_type_string()
 
         # simple values
-        la = LEAF_ACCESSORS.get(self.get_type_string())
+        la = LEAF_ACCESSORS.get(type_string)
         if la:
-            return la()
+            return getattr(self, la)()
 
         # tuple
-        if self.get_type_string().startswith('('):
-            res = [self.get_child_value(i).unpack()
-                   for i in range(self.n_children())]
-            return tuple(res)
+        if type_string.startswith('('):
+            return tuple(self.get_child_value(i).unpack()
+                         for i in range(self.n_children()))
 
         # dictionary
-        if self.get_type_string().startswith('a{'):
+        if type_string.startswith('a{'):
             res = {}
             for i in range(self.n_children()):
                 v = self.get_child_value(i)
@@ -256,21 +258,21 @@ class Variant(GLib.Variant):
             return res
 
         # array
-        if self.get_type_string().startswith('a'):
+        if type_string.startswith('a'):
             return [self.get_child_value(i).unpack()
                     for i in range(self.n_children())]
 
         # variant (just unbox transparently)
-        if self.get_type_string().startswith('v'):
+        if type_string.startswith('v'):
             return self.get_variant().unpack()
 
         # maybe
-        if self.get_type_string().startswith('m'):
+        if type_string.startswith('m'):
             if not self.n_children():
                 return None
             return self.get_child_value(0).unpack()
 
-        raise NotImplementedError('unsupported GVariant type ' + self.get_type_string())
+        raise NotImplementedError('unsupported GVariant type ' + type_string)
 
     @classmethod
     def split_signature(klass, signature):
@@ -384,15 +386,12 @@ class Variant(GLib.Variant):
         # Array, dict, tuple
         if self.get_type_string().startswith('a') or self.get_type_string().startswith('('):
             return self.n_children() != 0
-        if self.get_type_string() in ['v']:
-            # unpack works recursively, hence bool also works recursively
-            return bool(self.unpack())
-        # Everything else is True
-        return True
+        # unpack works recursively, hence bool also works recursively
+        return bool(self.unpack())
 
     def keys(self):
         if not self.get_type_string().startswith('a{'):
-            return TypeError, 'GVariant type %s is not a dictionary' % self.get_type_string()
+            raise TypeError('GVariant type %s is not a dictionary' % self.get_type_string())
 
         res = []
         for i in range(self.n_children()):
@@ -527,7 +526,10 @@ class Source(GLib.Source):
     def __del__(self):
         if hasattr(self, '__pygi_custom_source'):
             self.destroy()
-        super(Source, self).__del__()
+            # XXX: We have to unref the underlying source while the Python
+            # wrapper is still valid, so the source can call into the
+            # wrapper methods for the finalized callback.
+            self._clear_boxed()
 
     def set_callback(self, fn, user_data=None):
         if hasattr(self, '__pygi_custom_source'):
@@ -825,7 +827,7 @@ def _child_watch_add_get_args(priority_or_pid, pid_or_callback, *args, **kwargs)
     if 'data' in kwargs:
         if user_data:
             raise TypeError('got multiple values for "data" argument')
-        user_data = [kwargs['data']]
+        user_data = (kwargs['data'],)
 
     return priority, pid, callback, user_data
 
@@ -861,14 +863,10 @@ def filename_from_utf8(utf8string, len=-1):
 __all__.append('filename_from_utf8')
 
 
-# backwards compatible API for renamed function
-if not hasattr(GLib, 'unix_signal_add_full'):
-    def add_full_compat(*args):
-        warnings.warn('GLib.unix_signal_add_full() was renamed to GLib.unix_signal_add()',
-                      PyGIDeprecationWarning)
-        return GLib.unix_signal_add(*args)
-
-    GLib.unix_signal_add_full = add_full_compat
+if hasattr(GLib, "unix_signal_add"):
+    unix_signal_add_full = GLib.unix_signal_add
+    __all__.append('unix_signal_add_full')
+    deprecated_attr("GLib", "unix_signal_add_full", "GLib.unix_signal_add")
 
 
 # obsolete constants for backwards compatibility

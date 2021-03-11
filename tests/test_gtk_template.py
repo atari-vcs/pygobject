@@ -1,7 +1,3 @@
-# coding: UTF-8
-
-from __future__ import absolute_import
-
 import tempfile
 import os
 import pytest
@@ -190,18 +186,17 @@ def test_main_example():
     assert w.goodbye_button.props.label == "Goodbye World"
 
     assert w.callback_hello == []
-    w._hello_button.clicked()
+    w._hello_button.emit("clicked")
     assert w.callback_hello == [(w,)]
     assert w.callback_hello_after == [(w,)]
 
     assert w.callback_goodbye == []
-    w.goodbye_button.clicked()
+    w.goodbye_button.emit("clicked")
     assert w.callback_goodbye == [(w.goodbye_button,)]
     assert w.callback_goodbye_after == [(w.goodbye_button,)]
 
 
 def test_duplicate_handler():
-
     type_name = new_gtype_name()
 
     xml = """\
@@ -209,7 +204,7 @@ def test_duplicate_handler():
   <template class="{0}" parent="GtkBox">
     <child>
       <object class="GtkButton" id="hello_button">
-        <signal name="clicked" handler="hello_button_clicked">
+        <signal name="clicked" handler="hello_button_clicked" />
       </object>
     </child>
   </template>
@@ -300,7 +295,6 @@ def test_missing_handler_callback():
 
 
 def test_handler_swapped_not_supported():
-
     type_name = new_gtype_name()
 
     xml = """\
@@ -332,7 +326,6 @@ def test_handler_swapped_not_supported():
 
 
 def test_handler_class_staticmethod():
-
     type_name = new_gtype_name()
 
     xml = """\
@@ -368,13 +361,13 @@ def test_handler_class_staticmethod():
             signal_args_static.append(args)
 
     foo = Foo()
-    foo.hello_button.clicked()
+    foo.hello_button.emit("clicked")
     assert signal_args_class == [(Foo, foo.hello_button)]
     assert signal_args_static == [(foo.hello_button,)]
 
 
+@pytest.mark.skipif(Gtk._version == "4.0", reason="errors out first with gtk4")
 def test_check_decorated_class():
-
     NonWidget = type("Foo", (object,), {})
     with pytest.raises(TypeError, match=".*on Widgets.*"):
         Gtk.Template.from_string("")(NonWidget)
@@ -390,6 +383,9 @@ def test_check_decorated_class():
     with pytest.raises(TypeError, match=".*on Widgets.*"):
         Gtk.Template.from_string("")(object())
 
+
+@pytest.mark.skipif(Gtk._version == "4.0", reason="errors out first with gtk4")
+def test_subclass_fail():
     @Gtk.Template.from_string("")
     class Base(Gtk.Widget):
         __gtype_name__ = new_gtype_name()
@@ -590,3 +586,107 @@ def test_internal_child():
     child = child.get_children()[0]
     assert isinstance(child, Gtk.Label)
     assert child.props.label == "foo"
+
+
+def test_template_hierarchy():
+    testlabel = """
+    <interface>
+      <template class="TestLabel" parent="GtkLabel">
+      </template>
+     </interface>
+    """
+
+    @Gtk.Template(string=testlabel)
+    class TestLabel(Gtk.Label):
+
+        __gtype_name__ = "TestLabel"
+
+        def __init__(self):
+            super().__init__()
+            self.props.label = "TestLabel"
+
+    testbox = """
+    <interface>
+      <template class="TestBox" parent="GtkBox">
+        <child>
+          <object class="TestLabel" id="_testlabel"/>
+        </child>
+      </template>
+    </interface>
+    """
+
+    @Gtk.Template(string=testbox)
+    class TestBox(Gtk.Box):
+
+        __gtype_name__ = "TestBox"
+
+        _testlabel = Gtk.Template.Child()
+
+        def __init__(self):
+            super().__init__()
+
+            assert isinstance(self._testlabel, TestLabel)
+
+    window = """
+    <interface>
+      <template class="MyWindow" parent="GtkWindow">
+        <property name="title">"Hellow World"</property>
+        <child>
+          <object class="TestBox" id="_testbox">
+            <child>
+              <object class="TestLabel" id="_testlabel"/>
+            </child>
+          </object>
+        </child>
+      </template>
+    </interface>
+    """
+
+    @Gtk.Template(string=window)
+    class MyWindow(Gtk.Window):
+
+        __gtype_name__ = "MyWindow"
+
+        _testbox = Gtk.Template.Child()
+        _testlabel = Gtk.Template.Child()
+
+        def __init__(self):
+            super().__init__()
+
+            assert isinstance(self._testbox, TestBox)
+            assert isinstance(self._testlabel, TestLabel)
+            assert len(self._testbox.get_children()) == 2
+
+    win = MyWindow()
+    assert isinstance(win, MyWindow)
+
+
+def test_multiple_init_template_calls():
+    xml = """
+    <interface>
+      <template class="MyBox" parent="GtkBox">
+        <child>
+          <object class="GtkLabel" id="_label"/>
+        </child>
+       </template>
+     </interface>
+    """
+
+    @Gtk.Template(string=xml)
+    class MyBox(Gtk.Box):
+
+        __gtype_name__ = "MyBox"
+
+        _label = Gtk.Template.Child()
+
+        def __init__(self):
+            super().__init__()
+            self._label.props.label = "awesome label"
+
+    my_box = MyBox()
+    assert isinstance(my_box, MyBox)
+    assert len(my_box.get_children()) == 1
+
+    my_box.init_template()
+    assert isinstance(my_box, MyBox)
+    assert len(my_box.get_children()) == 1

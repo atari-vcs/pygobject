@@ -174,6 +174,58 @@ regress_test_cairo_path_full_in_full_return (cairo_path_t *path)
 }
 
 /**
+ * regress_test_cairo_pattern_full_in:
+ * @pattern: (transfer full):
+ */
+void
+regress_test_cairo_pattern_full_in (cairo_pattern_t *pattern)
+{
+    cairo_pattern_destroy (pattern);
+}
+
+/**
+ * regress_test_cairo_pattern_none_in:
+ * @pattern: (transfer none):
+ */
+void
+regress_test_cairo_pattern_none_in (cairo_pattern_t *pattern)
+{
+    cairo_t *cr = regress_test_cairo_context_full_return ();
+    cairo_set_source (cr, pattern);
+    g_assert (cairo_status (cr) == CAIRO_STATUS_SUCCESS);
+    cairo_destroy (cr);
+}
+
+/**
+ * regress_test_cairo_pattern_none_return:
+ *
+ * Returns: (transfer none):
+ */
+cairo_pattern_t*
+regress_test_cairo_pattern_none_return (void)
+{
+    static cairo_pattern_t *pattern;
+
+    if (pattern == NULL) {
+        pattern = cairo_pattern_create_rgb(0.1, 0.2, 0.3);
+    }
+
+    return pattern;
+}
+
+/**
+ * regress_test_cairo_pattern_full_return:
+ *
+ * Returns: (transfer full):
+ */
+cairo_pattern_t *
+regress_test_cairo_pattern_full_return (void)
+{
+    cairo_pattern_t *pattern = cairo_pattern_create_rgb(0.5, 0.6, 0.7);
+    return pattern;
+}
+
+/**
  * regress_test_cairo_region_full_in:
  * @region: (transfer full):
  */
@@ -284,3 +336,63 @@ regress_test_cairo_matrix_out_caller_allocates (cairo_matrix_t *matrix)
 }
 
 #endif
+
+G_DEFINE_TYPE (RegressTestAction, regress_test_action, G_TYPE_INITIALLY_UNOWNED)
+
+enum
+{
+    SIGNAL_0,
+    ACTION_SIGNAL,
+    ACTION2_SIGNAL,
+    LAST_SIGNAL
+};
+
+static guint regress_test_action_signals[LAST_SIGNAL] = { 0 };
+
+static RegressTestAction *
+regress_test_action_do_action (RegressTestAction *self)
+{
+    RegressTestAction *ret = g_object_new (regress_test_action_get_type (), NULL);
+
+    return ret;
+}
+
+static RegressTestAction *
+regress_test_action_do_action2 (RegressTestAction *self)
+{
+    return NULL;
+}
+
+static void
+regress_test_action_init (RegressTestAction *self)
+{
+}
+
+static void regress_test_action_class_init (RegressTestActionClass *klass)
+{
+    /**
+     * RegressTestAction::action:
+     *
+     * An action signal.
+     *
+     * Returns: (transfer full): another #RegressTestAction
+     */
+    regress_test_action_signals[ACTION_SIGNAL] =
+        g_signal_new_class_handler ("action",
+        G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+        G_CALLBACK (regress_test_action_do_action), NULL, NULL,
+        NULL, regress_test_action_get_type (), 0);
+
+    /**
+     * RegressTestAction::action2:
+     *
+     * Another action signal.
+     *
+     * Returns: (transfer full): another #RegressTestAction
+     */
+    regress_test_action_signals[ACTION2_SIGNAL] =
+        g_signal_new_class_handler ("action2",
+        G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+        G_CALLBACK (regress_test_action_do_action2), NULL, NULL,
+        NULL, regress_test_action_get_type (), 0);
+}

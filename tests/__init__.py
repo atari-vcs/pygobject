@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 import os
 import sys
 import unittest
@@ -34,12 +32,8 @@ sys.meta_path.insert(0, GIImport())
 
 def init_test_environ():
     # this was renamed in Python 3, provide backwards compatible name
-    if sys.version_info[:2] == (2, 7):
-        unittest.TestCase.assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
-
-    if sys.version_info[0] == 3:
-        unittest.TestCase.assertRegexpMatches = unittest.TestCase.assertRegex
-        unittest.TestCase.assertRaisesRegexp = unittest.TestCase.assertRaisesRegex
+    unittest.TestCase.assertRegexpMatches = unittest.TestCase.assertRegex
+    unittest.TestCase.assertRaisesRegexp = unittest.TestCase.assertRaisesRegex
 
     def dbus_launch_session():
         if os.name == "nt" or sys.platform == "darwin":
@@ -52,8 +46,7 @@ def init_test_environ():
         except (subprocess.CalledProcessError, OSError):
             return (-1, "")
         else:
-            if sys.version_info[0] == 3:
-                out = out.decode("utf-8")
+            out = out.decode("utf-8")
             addr, pid = out.splitlines()
             return int(pid), addr
 
@@ -88,6 +81,9 @@ def init_test_environ():
     os.environ['GSETTINGS_BACKEND'] = 'memory'
     os.environ['GSETTINGS_SCHEMA_DIR'] = tests_builddir
     os.environ['G_FILENAME_ENCODING'] = 'UTF-8'
+
+    # Avoid accessibility dbus warnings
+    os.environ['NO_AT_BRIDGE'] = '1'
 
     # Force the default theme so broken themes don't affect the tests
     os.environ['GTK_THEME'] = 'Adwaita'
@@ -127,6 +123,19 @@ def init_test_environ():
     # It's disabled for stable releases by default, this makes sure it's
     # always on for the tests.
     warnings.simplefilter('default', gi.PyGIDeprecationWarning)
+
+    # Otherwise we crash on the first gtk use when e.g. DISPLAY isn't set
+    try:
+        from gi.repository import Gtk
+    except ImportError:
+        pass
+    else:
+        if Gtk._version == "4.0":
+            res = Gtk.init_check()
+        else:
+            res = Gtk.init_check([])[0]
+        if not res:
+            raise RuntimeError("Gtk available, but Gtk.init_check() failed")
 
 
 init_test_environ()

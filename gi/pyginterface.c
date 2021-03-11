@@ -23,14 +23,14 @@
 #include <Python.h>
 #include <glib-object.h>
 
-#include "pygi-python-compat.h"
+#include "pygi-util.h"
 #include "pyginterface.h"
 #include "pygi-type.h"
 
 GQuark pyginterface_type_key;
 GQuark pyginterface_info_key;
 
-PYGLIB_DEFINE_TYPE("gobject.GInterface", PyGInterface_Type, PyObject)
+PYGI_DEFINE_TYPE("gobject.GInterface", PyGInterface_Type, PyObject)
 
 static int
 pyg_interface_init(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -108,19 +108,29 @@ pyg_lookup_interface_info(GType gtype)
 int
 pygi_interface_register_types(PyObject *d)
 {
-  pyginterface_type_key = g_quark_from_static_string("PyGInterface::type");
-  pyginterface_info_key = g_quark_from_static_string("PyGInterface::info");
+    PyObject *pygtype;
 
-  PyGInterface_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
-  PyGInterface_Type.tp_init = (initproc)pyg_interface_init;
-  PyGInterface_Type.tp_free = (freefunc)pyg_interface_free;
+    pyginterface_type_key = g_quark_from_static_string("PyGInterface::type");
+    pyginterface_info_key = g_quark_from_static_string("PyGInterface::info");
 
-  PYGOBJECT_REGISTER_GTYPE(d, PyGInterface_Type, "GInterface", G_TYPE_INTERFACE)
+    PyGInterface_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+    PyGInterface_Type.tp_init = (initproc)pyg_interface_init;
+    PyGInterface_Type.tp_free = (freefunc)pyg_interface_free;
+    PyGInterface_Type.tp_alloc = PyType_GenericAlloc;
+    PyGInterface_Type.tp_new = PyType_GenericNew;
+    if (PyType_Ready(&PyGInterface_Type))
+        return -1;
 
-  PyDict_SetItemString(PyGInterface_Type.tp_dict, "__doc__",
-		       pyg_object_descr_doc_get());
-  PyDict_SetItemString(PyGInterface_Type.tp_dict, "__gdoc__",
-		       pyg_object_descr_doc_get());
+    pygtype = pyg_type_wrapper_new (G_TYPE_INTERFACE);
+    PyDict_SetItemString (PyGInterface_Type.tp_dict, "__gtype__", pygtype);
+    Py_DECREF (pygtype);
 
-  return 0;
+    PyDict_SetItemString(PyGInterface_Type.tp_dict, "__doc__",
+                pyg_object_descr_doc_get());
+    PyDict_SetItemString(PyGInterface_Type.tp_dict, "__gdoc__",
+                pyg_object_descr_doc_get());
+
+    PyDict_SetItemString(d, "GInterface", (PyObject *)&PyGInterface_Type);
+
+    return 0;
 }

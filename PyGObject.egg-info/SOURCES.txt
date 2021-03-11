@@ -8,17 +8,21 @@ meson.build
 meson_options.txt
 pygobject-3.0.pc.in
 pygobject.doap
+pyproject.toml
 setup.cfg
 setup.py
 .gitlab-ci/Dockerfile
 .gitlab-ci/Dockerfile.old
 .gitlab-ci/README.rst
 .gitlab-ci/coverage-docker.sh
-.gitlab-ci/fixup-cov-paths.py
+.gitlab-ci/fixup-covpy-paths.py
+.gitlab-ci/fixup-lcov-paths.py
 .gitlab-ci/run-docker-old.sh
+.gitlab-ci/run-docker-runtime.sh
 .gitlab-ci/run-docker.sh
 .gitlab-ci/test-docker-old.sh
 .gitlab-ci/test-docker.sh
+.gitlab-ci/test-flatpak-gtk4.sh
 .gitlab-ci/test-flatpak.sh
 .gitlab-ci/test-msys2.sh
 PyGObject.egg-info/PKG-INFO
@@ -61,6 +65,7 @@ docs/guide/api/gobject.rst
 docs/guide/api/index.rst
 docs/guide/api/properties.rst
 docs/guide/api/signals.rst
+docs/guide/api/weakrefs.rst
 docs/guide/code/cairo-demo.py
 docs/guide/images/cairo_integration.png
 docs/images/LICENSE
@@ -140,7 +145,6 @@ examples/demo/demos/data/gnu-keys.png
 examples/demo/demos/data/gtk-logo-rgb.gif
 examples/demo/demos/data/reset.css
 gi/__init__.py
-gi/_compat.py
 gi/_constants.py
 gi/_error.py
 gi/_gtktemplate.py
@@ -197,7 +201,6 @@ gi/pygi-object.c
 gi/pygi-object.h
 gi/pygi-property.c
 gi/pygi-property.h
-gi/pygi-python-compat.h
 gi/pygi-repository.c
 gi/pygi-repository.h
 gi/pygi-resulttuple.c
@@ -297,6 +300,7 @@ tests/test_overrides_gdk.py
 tests/test_overrides_gdkpixbuf.py
 tests/test_overrides_gio.py
 tests/test_overrides_glib.py
+tests/test_overrides_gobject.py
 tests/test_overrides_gtk.py
 tests/test_overrides_pango.py
 tests/test_properties.py

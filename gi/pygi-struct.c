@@ -25,7 +25,7 @@
 #include "pygi-type.h"
 #include "pygi-type.h"
 #include "pygpointer.h"
-#include "pygi-python-compat.h"
+#include "pygi-util.h"
 
 #include <girepository.h>
 
@@ -144,7 +144,7 @@ struct_init (PyObject *self,
     return 0;
 }
 
-PYGLIB_DEFINE_TYPE("gi.Struct", PyGIStruct_Type, PyGIStruct);
+PYGI_DEFINE_TYPE("gi.Struct", PyGIStruct_Type, PyGIStruct);
 
 
 PyObject *
@@ -216,11 +216,11 @@ struct_repr(PyGIStruct *self)
     if (info == NULL)
         return NULL;
 
-    repr = PYGLIB_PyUnicode_FromFormat ("<%s.%s object at %p (%s at %p)>",
-                                        g_base_info_get_namespace (info),
-                                        g_base_info_get_name (info),
-                                        self, g_type_name (pointer->gtype),
-                                        pointer->pointer);
+    repr = PyUnicode_FromFormat ("<%s.%s object at %p (%s at %p)>",
+                                 g_base_info_get_namespace (info),
+                                 g_base_info_get_name (info),
+                                 self, g_type_name (pointer->gtype),
+                                 pointer->pointer);
 
     g_base_info_unref (info);
 
