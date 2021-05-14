@@ -12,6 +12,9 @@ ifneq ($(filter $(DEB_BUILD_ARCH), ),)
     TESTSUITE_FAIL_CMD=$(NON_FATAL)
 endif
 
+# atari: do not build python3-gi-cairo
+export PYGOBJECT_WITHOUT_PYCAIRO = 1
+
 export PYBUILD_BEFORE_TEST = {interpreter} {dir}/setup.py build_tests
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
