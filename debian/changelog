@@ -1,4 +1,4 @@
-pygobject (3.38.0-2apertis0vcs1) vcs; urgency=medium
+pygobject (3.38.0-2apertis0vcs2) vcs; urgency=medium
 
   * Build for atari vcs project
   * Remaining atari changes
