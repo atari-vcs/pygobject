@@ -1,8 +1,6 @@
 pygobject (3.38.0-2apertis0vcs0) vcs; urgency=medium
 
   * Build for atari vcs project
-  * Remaining atari changes:
-    * Don't build python3-gi-cairo
 
  -- Christopher Obbard <chris.obbard@collabora.com>  Fri, 14 May 2021 15:17:01 +0100
 
