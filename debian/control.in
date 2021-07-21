@@ -40,6 +40,7 @@ Depends: gir1.2-glib-2.0 (>= 1.48.0),
          ${misc:Depends},
          ${python3:Depends},
          ${shlibs:Depends}
+Replaces: python-gi
 Description: Python 3 bindings for gobject-introspection libraries
  GObject is an abstraction layer that allows programming with an object
  paradigm that is compatible with many languages. It is a part of Glib,
