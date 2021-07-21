@@ -1,3 +1,9 @@
+pygobject (3.38.0-2apertis0vcs3) vcs; urgency=medium
+
+  * Make python3-gi replace python-gi
+
+ -- Christopher Obbard <chris.obbard@collabora.com>  Wed, 21 Jul 2021 09:35:25 +0100
+
 pygobject (3.38.0-2apertis0vcs2) vcs; urgency=medium
 
   * Build for atari vcs project
